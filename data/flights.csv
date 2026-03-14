@@ -1,0 +1,6 @@
+Origin,Destination,Price,Duration
+GRU,JFK,800,10
+JFK,LHR,500,7
+GRU,CDG,850,11
+CDG,SYD,1200,22
+SYD,JFK,1000,20
