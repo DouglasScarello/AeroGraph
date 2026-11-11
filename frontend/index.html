@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AirCrazyScarello — Planejador de Rotas Inteligente</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['Space Grotesk', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdfa',
+              500: '#14b8a6',
+              600: '#0d9488',
+              900: '#134e4a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: radial-gradient(circle at top left, #0f172a, #020617 80%);
+      min-height: 100vh;
+    }
+    .glass {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glow-teal {
+      box-shadow: 0 0 35px -5px rgba(20, 184, 166, 0.25);
+    }
+  </style>
+</head>
+<body class="text-slate-100 font-sans antialiased flex flex-col min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800/80 glass sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-cyan-400 flex items-center justify-center text-xl shadow-lg shadow-teal-500/30">
+          ✈️
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            AirCrazyScarello <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/30">Dijkstra v1.0</span>
+          </h1>
+          <p class="text-xs text-slate-400">Otimizador de Rotas Aéreas com Menor Caminho</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4 text-xs text-slate-400">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          API Online
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 py-8 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+    
+    <!-- Formulário de Busca -->
+    <div class="lg:col-span-5 space-y-6">
+      <div class="glass p-6 rounded-2xl glow-teal border border-teal-500/20">
+        <h2 class="text-base font-semibold text-white mb-1 flex items-center gap-2">
+          <span>🔍</span> Encontrar Melhor Rota
+        </h2>
+        <p class="text-xs text-slate-400 mb-6">Selecione os aeroportos para calcular a rota mais eficiente via Teoria dos Grafos.</p>
+
+        <form id="searchForm" class="space-y-4">
+          <!-- Origem -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Aeroporto de Origem</label>
+            <div class="relative">
+              <select id="originSelect" required class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition">
+                <option value="" disabled selected>Carregando aeroportos...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Inverter Botão Rápido -->
+          <div class="flex justify-center -my-1">
+            <button type="button" id="swapBtn" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition shadow border border-slate-700" title="Inverter origem e destino">
+              🔄
+            </button>
+          </div>
+
+          <!-- Destino -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Aeroporto de Destino</label>
+            <div class="relative">
+              <select id="destSelect" required class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition">
+                <option value="" disabled selected>Carregando aeroportos...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Critério de Otimização -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Critério de Otimização</label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="relative flex items-center gap-2 p-3 rounded-xl border border-slate-700/80 bg-slate-900/60 cursor-pointer hover:border-slate-600 has-[:checked]:border-teal-500 has-[:checked]:bg-teal-500/10 transition">
+                <input type="radio" name="criteria" value="price" checked class="text-teal-500 focus:ring-0">
+                <div>
+                  <div class="text-sm font-semibold text-white">💰 Menor Preço</div>
+                  <div class="text-[11px] text-slate-400">Minimizar custo</div>
+                </div>
+              </label>
+
+              <label class="relative flex items-center gap-2 p-3 rounded-xl border border-slate-700/80 bg-slate-900/60 cursor-pointer hover:border-slate-600 has-[:checked]:border-teal-500 has-[:checked]:bg-teal-500/10 transition">
+                <input type="radio" name="criteria" value="duration" class="text-teal-500 focus:ring-0">
+                <div>
+                  <div class="text-sm font-semibold text-white">⏱️ Mais Rápido</div>
+                  <div class="text-[11px] text-slate-400">Minimizar tempo</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" id="submitBtn" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white font-semibold text-sm shadow-lg shadow-teal-500/25 transition duration-200 flex items-center justify-center gap-2 mt-2">
+            <span>Calcular Menor Caminho</span>
+            <span>⚡</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Card Informativo Teórico -->
+      <div class="glass p-5 rounded-2xl text-xs text-slate-400 space-y-2 border border-slate-800">
+        <div class="font-semibold text-slate-300 flex items-center gap-1.5">
+          <span>🧠</span> Como a Engine Funciona?
+        </div>
+        <p>A aplicação usa o <strong>Algoritmo de Dijkstra</strong> para explorar iterativamente o nó com menor custo acumulado até atingir o destino com complexidade ótima.</p>
+      </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="lg:col-span-7 space-y-6">
+      
+      <!-- Estado Inicial / Placeholder -->
+      <div id="emptyState" class="glass rounded-2xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[420px] border-dashed border-2 border-slate-800">
+        <div class="w-16 h-16 rounded-2xl bg-slate-800/80 flex items-center justify-center text-3xl mb-4 text-slate-400">
+          🗺️
+        </div>
+        <h3 class="text-base font-semibold text-white mb-1">Nenhuma rota calculada</h3>
+        <p class="text-xs text-slate-400 max-w-sm">Escolha uma origem e um destino ao lado e clique em calcular para visualizar o trajeto detalhado.</p>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loadingState" class="hidden glass rounded-2xl p-12 text-center flex flex-col items-center justify-center min-h-[420px]">
+        <div class="w-12 h-12 border-4 border-teal-500/20 border-t-teal-400 rounded-full animate-spin mb-4"></div>
+        <p class="text-sm font-semibold text-white">Calculando rota ótima no grafo...</p>
+        <p class="text-xs text-slate-400">Processando pesos de arestas com Dijkstra</p>
+      </div>
+
+      <!-- Erro -->
+      <div id="errorState" class="hidden glass rounded-2xl p-6 border-red-500/30 bg-red-950/20 text-red-300 flex items-start gap-4">
+        <span class="text-2xl">⚠️</span>
+        <div>
+          <h4 class="font-semibold text-sm text-red-200">Não foi possível calcular</h4>
+          <p id="errorMessage" class="text-xs mt-1 text-red-300/80"></p>
+        </div>
+      </div>
+
+      <!-- Card com Resultado da Rota -->
+      <div id="resultCard" class="hidden space-y-6">
+        
+        <!-- Resumo -->
+        <div class="glass p-6 rounded-2xl border border-teal-500/30 bg-gradient-to-br from-slate-900/90 to-teal-950/20">
+          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-4 mb-4">
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider text-teal-400" id="resCriteriaBadge">Preço Otimizado</span>
+              <h3 class="text-2xl font-bold font-mono text-white flex items-center gap-3 mt-0.5">
+                <span id="resOriginCode">GRU</span>
+                <span class="text-slate-500 text-lg">➔</span>
+                <span id="resDestCode">LHR</span>
+              </h3>
+            </div>
+            
+            <div class="flex items-center gap-6">
+              <div class="text-right">
+                <div class="text-xs text-slate-400">Custo Total</div>
+                <div class="text-xl font-bold text-emerald-400 font-mono" id="resTotalPrice">$0 USD</div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-slate-400">Tempo de Voo</div>
+                <div class="text-xl font-bold text-sky-400 font-mono" id="resTotalDuration">0h</div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-slate-400">Conexões</div>
+                <div class="text-xl font-bold text-amber-400 font-mono" id="resStops">0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sequência Visual do Trajeto -->
+          <div>
+            <div class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">Trajeto no Grafo</div>
+            <div id="routePathNodes" class="flex flex-wrap items-center gap-2"></div>
+          </div>
+        </div>
+
+        <!-- Trechos Detalhados -->
+        <div class="glass p-6 rounded-2xl border border-slate-800">
+          <h4 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <span>📋</span> Detalhamento dos Trechos
+          </h4>
+          <div id="segmentsList" class="space-y-3"></div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    let airportsList = [];
+
+    async function loadAirports() {
+      try {
+        const res = await fetch('/airports');
+        if (!res.ok) throw new Error('Falha ao carregar aeroportos');
+        airportsList = await res.json();
+
+        const originSelect = document.getElementById('originSelect');
+        const destSelect = document.getElementById('destSelect');
+
+        originSelect.innerHTML = '<option value="" disabled selected>Selecione a origem...</option>';
+        destSelect.innerHTML = '<option value="" disabled selected>Selecione o destino...</option>';
+
+        airportsList.forEach(a => {
+          const opt1 = document.createElement('option');
+          opt1.value = a.iata;
+          opt1.textContent = `${a.iata} — ${a.city} (${a.country})`;
+          originSelect.appendChild(opt1);
+
+          const opt2 = document.createElement('option');
+          opt2.value = a.iata;
+          opt2.textContent = `${a.iata} — ${a.city} (${a.country})`;
+          destSelect.appendChild(opt2);
+        });
+
+        // Valores padrão iniciais para facilitar
+        originSelect.value = 'GRU';
+        destSelect.value = 'LHR';
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    document.getElementById('swapBtn').addEventListener('click', () => {
+      const o = document.getElementById('originSelect');
+      const d = document.getElementById('destSelect');
+      const temp = o.value;
+      o.value = d.value;
+      d.value = temp;
+    });
+
+    document.getElementById('searchForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const origin = document.getElementById('originSelect').value;
+      const destination = document.getElementById('destSelect').value;
+      const criteria = document.querySelector('input[name="criteria"]:checked').value;
+
+      if (!origin || !destination) return;
+
+      const emptyState = document.getElementById('emptyState');
+      const loadingState = document.getElementById('loadingState');
+      const errorState = document.getElementById('errorState');
+      const resultCard = document.getElementById('resultCard');
+
+      emptyState.classList.add('hidden');
+      errorState.classList.add('hidden');
+      resultCard.classList.add('hidden');
+      loadingState.classList.remove('hidden');
+
+      try {
+        const res = await fetch(`/search?origin=${origin}&destination=${destination}&criteria=${criteria}`);
+        const data = await res.json();
+
+        loadingState.classList.add('hidden');
+
+        if (!res.ok) {
+          document.getElementById('errorMessage').textContent = data.detail || 'Erro ao consultar rota.';
+          errorState.classList.remove('hidden');
+          return;
+        }
+
+        // Preenche resumo
+        document.getElementById('resOriginCode').textContent = data.origin;
+        document.getElementById('resDestCode').textContent = data.destination;
+        document.getElementById('resTotalPrice').textContent = `$${data.total_price} USD`;
+        document.getElementById('resTotalDuration').textContent = `${data.total_duration}h`;
+        document.getElementById('resStops').textContent = data.stops === 0 ? 'Direto' : `${data.stops} escala(s)`;
+        document.getElementById('resCriteriaBadge').textContent = criteria === 'price' ? '💰 Menor Preço' : '⏱️ Rota Mais Rápida';
+
+        // Preenche nós do trajeto
+        const pathContainer = document.getElementById('routePathNodes');
+        pathContainer.innerHTML = '';
+        data.path.forEach((code, index) => {
+          const badge = document.createElement('div');
+          badge.className = 'px-3 py-1.5 rounded-lg bg-teal-500/20 text-teal-300 font-mono font-bold text-sm border border-teal-500/40 shadow-sm flex items-center gap-1.5';
+          badge.innerHTML = `<span>✈️</span> ${code}`;
+          pathContainer.appendChild(badge);
+
+          if (index < data.path.length - 1) {
+            const arrow = document.createElement('span');
+            arrow.className = 'text-slate-500 font-bold';
+            arrow.textContent = '➔';
+            pathContainer.appendChild(arrow);
+          }
+        });
+
+        // Preenche segmentos
+        const segmentsContainer = document.getElementById('segmentsList');
+        segmentsContainer.innerHTML = '';
+        
+        if (data.segments.length === 0) {
+          segmentsContainer.innerHTML = '<div class="text-xs text-slate-400">Origem e destino são o mesmo aeroporto.</div>';
+        } else {
+          data.segments.forEach((seg, i) => {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs';
+            item.innerHTML = `
+              <div class="flex items-center gap-3">
+                <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-[11px]">${i + 1}</span>
+                <span class="font-mono font-bold text-sm text-white">${seg.from_airport} ➔ ${seg.to_airport}</span>
+              </div>
+              <div class="flex items-center gap-4 text-slate-300 font-mono">
+                <span class="text-emerald-400 font-semibold">$${seg.price}</span>
+                <span class="text-sky-300">⏱️ ${seg.duration}h</span>
+              </div>
+            `;
+            segmentsContainer.appendChild(item);
+          });
+        }
+
+        resultCard.classList.remove('hidden');
+
+      } catch (err) {
+        loadingState.classList.add('hidden');
+        document.getElementById('errorMessage').textContent = 'Erro de conexão com o servidor da API.';
+        errorState.classList.remove('hidden');
+      }
+    });
+
+    loadAirports();
+  </script>
+</body>
+</html>

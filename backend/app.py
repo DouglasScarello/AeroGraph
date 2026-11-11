@@ -2,6 +2,8 @@ import os
 from typing import List, Literal
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from core.graph import build_graph, get_airport_info
 from core.dijkstra import find_best_route
@@ -23,10 +25,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Caminhos dos datasets
+# Caminhos dos datasets e frontend
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AIRPORTS_FILE = os.path.join(BASE_DIR, "data", "airports.csv")
 FLIGHTS_FILE = os.path.join(BASE_DIR, "data", "flights.csv")
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
 # Inicialização do grafo em memória
 G = build_graph(AIRPORTS_FILE, FLIGHTS_FILE)
@@ -34,10 +37,27 @@ G = build_graph(AIRPORTS_FILE, FLIGHTS_FILE)
 
 @app.get(
     "/",
+    summary="Interface Web do Usuário",
+    description="Retorna a aplicação web visual e amigável para o usuário final."
+)
+def serve_ui():
+    index_file = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    return {
+        "status": "online",
+        "message": "Welcome to AirCrazyScarello Route Engine",
+        "total_airports": len(G.nodes),
+        "total_flights": len(G.edges)
+    }
+
+
+@app.get(
+    "/api/status",
     summary="Status da API",
     description="Retorna status e resumo dos aeroportos carregados no sistema."
 )
-def home():
+def api_status():
     return {
         "status": "online",
         "message": "Welcome to AirCrazyScarello Route Engine",
