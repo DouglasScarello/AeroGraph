@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="h-full">
+<html lang="pt-BR" class="h-full w-full overflow-hidden">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AirCrazyScarello — Global Flight Navigation & Interactive Radar</title>
-  
-  <!-- Tipografia Editorial: Syne + Inter + JetBrains Mono -->
+  <title>AirCrazyScarello — Radar Tático de Navegação Aérea</title>
+
+  <!-- Tipografia: Syne + Inter + JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -26,52 +26,105 @@
     }
   </script>
 
-  <!-- Leaflet CSS & JS (Mapa Interativo da Terra) -->
+  <!-- Leaflet Core -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  
-  <!-- Leaflet Curve / Geodesic support -->
+
+  <!-- Leaflet MarkerCluster (para renderizar milhares de aeroportos estilo GTA/Google Maps sem lag) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- Leaflet Curve -->
   <script src="https://unpkg.com/leaflet-curve@1.0.0/leaflet.curve.js"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    body {
-      background-color: #08090d;
-      background-image: 
-        radial-gradient(ellipse 90% 40% at 50% -10%, rgba(20, 35, 55, 0.4), transparent 70%),
-        linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-      background-size: 100% 100%, 48px 48px, 48px 48px;
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background: #090a0f;
     }
 
-    /* Estilização Dark Map Leaflet */
-    #map {
-      height: 380px;
-      width: 100%;
-      background: #090a0f;
-      border-radius: 12px;
-      z-index: 10;
+    #fullmap {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1;
+      background-color: #06070a !important;
+    }
+
+    /* Tiles Carto Dark de Alta Performance */
+    .leaflet-tile {
+      filter: brightness(0.75) invert(1) contrast(3.2) hue-rotate(205deg) saturate(0.25);
     }
     .leaflet-container {
-      background-color: #090a0f !important;
-    }
-    .leaflet-tile {
-      filter: brightness(0.7) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3);
-    }
-    .leaflet-bar a {
-      background-color: #18181b !important;
-      color: #a1a1aa !important;
-      border-color: #27272a !important;
+      background: #06070a !important;
     }
 
-    /* Autocomplete */
-    .autocomplete-list {
-      max-height: 240px;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: #27272a #090a0f;
+    /* Pin GTA / Google Maps Style */
+    .gta-marker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #18181b;
+      border: 1.5px solid #3f3f46;
+      border-radius: 6px;
+      color: #f4f4f5;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.7);
+      transition: all 150ms ease;
+      cursor: pointer;
+    }
+    .gta-marker:hover {
+      transform: scale(1.15) translateY(-2px);
+      border-color: #38bdf8;
+      background: #0284c7;
+      color: #ffffff;
+      z-index: 9999 !important;
+    }
+    .gta-marker.active-pin {
+      background: #10b981;
+      border-color: #34d399;
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+    }
+
+    /* Clusters de Aeroportos */
+    .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+      background-color: rgba(39, 39, 42, 0.6) !important;
+      border: 1px solid rgba(113, 113, 122, 0.4);
+    }
+    .marker-cluster div {
+      background-color: #18181b !important;
+      color: #e4e4e7 !important;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+
+    /* Animação do Avião / Ponto pulsante ao longo da rota */
+    @keyframes planeFlight {
+      0% { offset-distance: 0%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { offset-distance: 100%; opacity: 0; }
+    }
+
+    /* Custom Scrollbar */
+    .custom-scroll::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 4px;
     }
 
     /* Toasts */
@@ -79,7 +132,7 @@
       position: fixed;
       bottom: 24px;
       right: 24px;
-      z-index: 9999;
+      z-index: 99999;
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -97,195 +150,157 @@
     }
   </style>
 </head>
-<body class="min-h-full flex flex-col font-sans text-zinc-300 antialiased selection:bg-zinc-800 selection:text-zinc-100">
+<body class="h-full w-full overflow-hidden text-zinc-300 antialiased font-sans select-none">
 
   <div id="toast-container" aria-live="polite"></div>
 
-  <!-- Header -->
-  <header class="border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md sticky top-0 z-40">
-    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-        <span class="font-display font-extrabold text-sm tracking-wider text-zinc-100 uppercase">
-          AirCrazy<span class="text-zinc-500">.</span>Scarello
-        </span>
-        <span class="text-zinc-600 text-xs">•</span>
-        <span class="text-[11px] font-mono text-zinc-400">Global Yen K-Shortest Radar</span>
-      </div>
+  <!-- 1. MAPA FULLSCREEN EM TODA A TELA (COMO GOOGLE MAPS / GTA) -->
+  <div id="fullmap"></div>
 
-      <div class="flex items-center gap-4 text-xs font-mono">
-        <div class="hidden sm:flex items-center gap-2 text-zinc-500">
-          <span>MALHA COMERCIAL:</span>
-          <span class="text-zinc-300 font-semibold" id="globalStats">3.224 AEROPORTOS / 36.826 ROTAS</span>
+  <!-- 2. PAINEL FLUTUANTE NO CANTO SUPERIOR ESQUERDO (GOOGLE MAPS STYLE) -->
+  <aside 
+    id="searchCard" 
+    class="absolute top-4 left-4 z-20 w-[380px] max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] flex flex-col bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300"
+  >
+    <!-- Header do Painel -->
+    <div class="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/40">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-100 shadow-sm">
+          <i data-lucide="plane" class="w-4 h-4 text-zinc-200"></i>
         </div>
-        <a href="/docs" target="_blank" class="px-2.5 py-1 rounded border border-zinc-800 hover:border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 transition-colors duration-150">
-          API /docs
-        </a>
+        <div>
+          <span class="font-display font-bold text-xs tracking-wider text-zinc-100 uppercase block">AirCrazyScarello</span>
+          <span class="text-[10px] font-mono text-zinc-500">Radar Global • 3.224 Aeroportos</span>
+        </div>
       </div>
-    </div>
-  </header>
-
-  <!-- Main Terminal -->
-  <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-8 flex flex-col space-y-6">
-    
-    <!-- Hero Header -->
-    <div>
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400 mb-3">
-        <span>K-SHORTEST PATHS</span>
-        <span class="text-zinc-600">/</span>
-        <span class="text-emerald-400">TOP 3 ALTERNATIVAS & ARCOS NO MAPA</span>
-      </div>
-      <h1 class="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-100 max-w-3xl leading-tight">
-        Navegação global e radar geodésico de rotas aéreas.
-      </h1>
-      <p class="text-xs sm:text-sm text-zinc-400 mt-2 max-w-2xl leading-relaxed">
-        O motor calcula não apenas a melhor rota, mas também as 3 alternativas mais eficientes do planeta traçadas diretamente no mapa geográfico.
-      </p>
-    </div>
-
-    <!-- O Console Terminal -->
-    <div class="rounded-2xl border border-zinc-800 bg-zinc-950/80 backdrop-blur-xl shadow-2xl p-6 sm:p-8 space-y-6">
       
-      <!-- Formulário de Busca -->
-      <form id="flightForm" class="space-y-6" novalidate>
+      <button 
+        type="button" 
+        id="toggleCollapseBtn" 
+        class="w-7 h-7 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition"
+        title="Minimizar / Expandir Painel"
+      >
+        <i data-lucide="chevron-up" id="collapseIcon" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- Conteúdo Roolável do Painel -->
+    <div id="panelBody" class="p-4 overflow-y-auto custom-scroll space-y-4">
+      
+      <!-- Linhas de Busca Origem / Destino conectadas com Linha Vertical (Google Maps Bus Route style) -->
+      <form id="radarForm" class="space-y-3" novalidate>
         
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+        <div class="relative flex items-stretch">
           
-          <!-- Origem -->
-          <div class="md:col-span-5 relative" id="originContainer">
-            <label class="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-              <span>Origem (Partida)</span>
-              <span id="originIataTag" class="text-zinc-500 font-bold">FLN</span>
-            </label>
+          <!-- Linha vertical conectando origem e destino -->
+          <div class="w-6 flex flex-col items-center justify-between py-3 mr-1 shrink-0">
+            <div class="w-2.5 h-2.5 rounded-full border-2 border-emerald-400 bg-emerald-950"></div>
+            <div class="w-0.5 flex-1 bg-zinc-700/60 my-1"></div>
+            <div class="w-2.5 h-2.5 rounded-sm border-2 border-sky-400 bg-sky-950"></div>
+          </div>
+
+          <!-- Campos de Input com Autocomplete -->
+          <div class="flex-1 space-y-2">
+            
+            <!-- Origem -->
             <div class="relative">
               <input 
                 type="text" 
                 id="originInput"
-                placeholder="Ex: Florianópolis, GRU, Paris..." 
+                placeholder="Origem (Ex: Florianópolis, GRU, Paris...)" 
                 autocomplete="off"
                 required
-                class="w-full h-12 bg-zinc-900/90 border border-zinc-800 rounded-xl px-4 text-sm text-zinc-100 font-medium placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors duration-150"
+                class="w-full h-10 bg-zinc-900/90 border border-zinc-800 rounded-xl px-3 text-xs text-zinc-100 font-medium placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
               />
               <input type="hidden" id="originCode" value="FLN">
-              <i data-lucide="plane-takeoff" class="w-4 h-4 text-zinc-500 absolute right-4 top-4 pointer-events-none"></i>
+              <span id="originBadge" class="absolute right-2.5 top-2.5 text-[10px] font-mono font-bold text-zinc-400 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">FLN</span>
+              <ul id="originResults" class="hidden absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scroll text-xs divide-y divide-zinc-800/40"></ul>
             </div>
-            <ul id="originResults" class="autocomplete-list hidden absolute left-0 right-0 top-full mt-1.5 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 py-1.5 text-xs divide-y divide-zinc-800/40"></ul>
-          </div>
 
-          <!-- Swap -->
-          <div class="md:col-span-2 flex justify-center pt-5 md:pt-4">
-            <button 
-              type="button" 
-              id="swapBtn"
-              title="Inverter Origem e Destino"
-              class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-150 active:scale-95 shadow-sm"
-            >
-              <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
-            </button>
-          </div>
-
-          <!-- Destino -->
-          <div class="md:col-span-5 relative" id="destContainer">
-            <label class="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-              <span>Destino (Chegada)</span>
-              <span id="destIataTag" class="text-zinc-500 font-bold">NRT</span>
-            </label>
+            <!-- Destino -->
             <div class="relative">
               <input 
                 type="text" 
                 id="destInput"
-                placeholder="Ex: Tóquio, Miami, LHR..." 
+                placeholder="Destino (Ex: Rio de Janeiro, NRT, JFK...)" 
                 autocomplete="off"
                 required
-                class="w-full h-12 bg-zinc-900/90 border border-zinc-800 rounded-xl px-4 text-sm text-zinc-100 font-medium placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors duration-150"
+                class="w-full h-10 bg-zinc-900/90 border border-zinc-800 rounded-xl px-3 text-xs text-zinc-100 font-medium placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
               />
-              <input type="hidden" id="destCode" value="NRT">
-              <i data-lucide="plane-landing" class="w-4 h-4 text-zinc-500 absolute right-4 top-4 pointer-events-none"></i>
+              <input type="hidden" id="destCode" value="GIG">
+              <span id="destBadge" class="absolute right-2.5 top-2.5 text-[10px] font-mono font-bold text-zinc-400 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">GIG</span>
+              <ul id="destResults" class="hidden absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scroll text-xs divide-y divide-zinc-800/40"></ul>
             </div>
-            <ul id="destResults" class="autocomplete-list hidden absolute left-0 right-0 top-full mt-1.5 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 py-1.5 text-xs divide-y divide-zinc-800/40"></ul>
+
+          </div>
+
+          <!-- Botão Inverter Lateral -->
+          <div class="flex items-center pl-2 shrink-0">
+            <button 
+              type="button" 
+              id="swapBtn"
+              title="Inverter Posições"
+              class="w-8 h-8 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition"
+            >
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5"></i>
+            </button>
           </div>
 
         </div>
 
-        <!-- Critério & Botão -->
-        <div class="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-900">
-          
-          <div class="flex items-center gap-2 bg-zinc-900/60 p-1.5 rounded-xl border border-zinc-800/80">
-            <label class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors duration-150 text-zinc-400 has-[:checked]:bg-zinc-800 has-[:checked]:text-zinc-100">
+        <!-- Seletor de Critério e Botão -->
+        <div class="flex items-center gap-2 pt-1">
+          <div class="flex-1 flex items-center bg-zinc-900 p-1 rounded-xl border border-zinc-800/80 text-[11px] font-medium font-mono">
+            <label class="flex-1 text-center py-1.5 rounded-lg cursor-pointer transition text-zinc-400 has-[:checked]:bg-zinc-800 has-[:checked]:text-zinc-100">
               <input type="radio" name="criteria" value="price" checked class="hidden">
-              <i data-lucide="banknote" class="w-3.5 h-3.5"></i>
-              <span>Menor Tarifa ($)</span>
+              <span>Menor Tarifa</span>
             </label>
-
-            <label class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors duration-150 text-zinc-400 has-[:checked]:bg-zinc-800 has-[:checked]:text-zinc-100">
+            <label class="flex-1 text-center py-1.5 rounded-lg cursor-pointer transition text-zinc-400 has-[:checked]:bg-zinc-800 has-[:checked]:text-zinc-100">
               <input type="radio" name="criteria" value="duration" class="hidden">
-              <i data-lucide="clock" class="w-3.5 h-3.5"></i>
-              <span>Menor Tempo (h)</span>
+              <span>Mais Rápido</span>
             </label>
           </div>
 
           <button 
             type="submit" 
-            id="calculateBtn"
-            class="w-full sm:w-auto h-11 px-8 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs tracking-wide transition-all duration-150 shadow-md flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+            id="searchBtn"
+            class="h-9 px-4 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-bold text-xs font-mono transition shadow flex items-center gap-1.5 active:scale-95 shrink-0"
           >
-            <i data-lucide="navigation-2" class="w-4 h-4 text-zinc-950 fill-zinc-950"></i>
-            <span id="btnLabel">Traçar Top 3 Rotas no Globo</span>
+            <i data-lucide="navigation" class="w-3.5 h-3.5 fill-zinc-950"></i>
+            <span>Traçar</span>
           </button>
-
         </div>
 
       </form>
 
-      <!-- SEÇÃO MAPA INTERATIVO + ROTAS -->
-      <div id="resultsZone" class="pt-6 border-t border-zinc-800/60 space-y-6">
+      <!-- ÁREA DE RESULTADOS ESTILO GOOGLE MAPS TRANSIT -->
+      <div id="resultsWrapper" class="space-y-3 pt-2 border-t border-zinc-900">
         
-        <!-- O Mapa Mundi da Terra (Visualização de Arcos Geodésicos) -->
-        <div class="space-y-2">
-          <div class="flex items-center justify-between text-xs font-mono">
-            <span class="text-zinc-400 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="map" class="w-3.5 h-3.5 text-zinc-400"></i>
-              <span>Radar Geodésico da Trajetória</span>
-            </span>
-            <span id="mapHint" class="text-zinc-500 text-[11px]">Rotas intercontinentais em tempo real</span>
-          </div>
-          <div id="map" class="border border-zinc-800/80 shadow-inner"></div>
-        </div>
-
         <!-- Estado Inicial -->
-        <div id="stateInitial" class="py-6 text-center">
-          <p class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Aguardando coordenadas para traçar o mapa</p>
+        <div id="stateEmpty" class="text-center py-6 text-zinc-500 text-xs">
+          <p class="font-mono text-[11px] uppercase tracking-wider text-zinc-500">Clique em qualquer aeroporto no mapa</p>
+          <p class="text-[10px] text-zinc-600 mt-1">Ou use o formulário acima para traçar a melhor rota global.</p>
         </div>
 
-        <!-- Skeleton Loading -->
-        <div id="stateLoading" class="hidden py-6 space-y-4 animate-pulse">
-          <div class="h-6 w-48 bg-zinc-800 rounded"></div>
-          <div class="h-16 w-full bg-zinc-900 border border-zinc-800 rounded-xl"></div>
+        <!-- Loading -->
+        <div id="stateLoading" class="hidden py-6 text-center space-y-2">
+          <div class="w-6 h-6 border-2 border-zinc-700 border-t-zinc-200 rounded-full animate-spin mx-auto"></div>
+          <p class="text-[11px] font-mono text-zinc-400">Calculando K-Shortest Paths...</p>
         </div>
 
-        <!-- Erro -->
-        <div id="stateError" class="hidden p-4 rounded-xl border border-red-900/50 bg-red-950/20 text-xs text-red-300 flex items-start gap-3">
-          <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 shrink-0 mt-0.5"></i>
-          <div>
-            <div class="font-semibold text-red-200">Sem conexão disponível</div>
-            <div id="errorMessage" class="text-red-300/80 mt-0.5"></div>
-          </div>
-        </div>
-
-        <!-- CARDS DAS TOP 3 ROTAS (Abas Selecionáveis) -->
-        <div id="stateSuccess" class="hidden space-y-5">
+        <!-- Alternativas K-Paths (Abas estilo Google Maps: Ônibus/Metrô) -->
+        <div id="routeResults" class="hidden space-y-3">
           
-          <div>
-            <span class="text-[11px] font-mono uppercase tracking-wider text-zinc-500 block mb-2.5">
-              Top 3 Melhores Alternativas Calculadas (Algoritmo de Yen)
-            </span>
-            
-            <!-- Abas / Cards das 3 opções -->
-            <div id="routeTabs" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+          <div class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 flex items-center justify-between">
+            <span>Rotas Alternativas Calculadas</span>
+            <span id="routeCount" class="text-zinc-400">3 Opções</span>
           </div>
 
-          <!-- Detalhamento da Rota Ativa Selecionada -->
-          <div id="activeRouteDetail" class="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 space-y-4"></div>
+          <!-- Cards das 3 opções -->
+          <div id="transitCards" class="space-y-2"></div>
+
+          <!-- ITINERÁRIO DETALHADO DO VOO (Estilo Google Maps Viagem) -->
+          <div id="itineraryDetail" class="pt-2 border-t border-zinc-900 space-y-3"></div>
 
         </div>
 
@@ -293,31 +308,72 @@
 
     </div>
 
-  </main>
+    <!-- Footer do Card -->
+    <div class="px-4 py-2.5 border-t border-zinc-800/80 bg-zinc-950 text-[10px] font-mono text-zinc-500 flex items-center justify-between">
+      <span>Dijkstra Engine Online</span>
+      <span class="text-emerald-400 flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> 15ms latency
+      </span>
+    </div>
+
+  </aside>
+
+  <!-- 3. CONTROLE RÁPIDO DO MAPA NO CANTO INFERIOR DIREITO -->
+  <div class="absolute bottom-6 right-6 z-20 flex flex-col gap-2">
+    <button 
+      id="resetViewBtn" 
+      class="p-2.5 rounded-xl bg-zinc-950/90 hover:bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white shadow-xl backdrop-blur transition"
+      title="Restaurar Visão Global"
+    >
+      <i data-lucide="globe" class="w-4 h-4"></i>
+    </button>
+  </div>
 
   <script>
-    // Inicialização do Mapa Leaflet Dark
-    const map = L.map('map', {
-      center: [15, 0],
-      zoom: 2,
-      minZoom: 1,
-      maxZoom: 8,
-      zoomControl: true,
+    // Inicialização do Mapa Fullscreen
+    const map = L.map('fullmap', {
+      center: [-10, -50],
+      zoom: 4,
+      minZoom: 2,
+      maxZoom: 10,
+      zoomControl: false,
       attributionControl: false
     });
 
+    // Tiles Carto Dark sem poluição visual
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19
     }).addTo(map);
 
-    let routeLayersGroup = L.layerGroup().addTo(map);
+    // Controles de Zoom no canto inferior esquerdo
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // Sistema Toasts Sonner
+    // Cluster de Aeroportos (renderiza 3.200 aeroportos como lojinhas do GTA)
+    const airportClusterGroup = L.markerClusterGroup({
+      chunkedLoading: true,
+      maxClusterRadius: 40,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      iconCreateFunction: function(cluster) {
+        const count = cluster.getChildCount();
+        return L.divIcon({
+          html: `<div class="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 font-mono text-xs font-bold shadow-lg">${count}</div>`,
+          className: 'custom-cluster',
+          iconSize: L.point(32, 32)
+        });
+      }
+    });
+    map.addLayer(airportClusterGroup);
+
+    // Grupo de Camadas para as Linhas de Voo
+    const flightPathGroup = L.layerGroup().addTo(map);
+
+    // Toast Sonner
     const toast = {
       show(title, desc = '', isError = false) {
         const container = document.getElementById('toast-container');
         const el = document.createElement('div');
-        el.className = `toast max-w-sm w-full rounded-xl border p-3.5 shadow-2xl flex items-start gap-3 text-xs ${
+        el.className = `toast max-w-xs w-full rounded-xl border p-3 shadow-2xl flex items-start gap-2.5 text-xs ${
           isError ? 'border-red-900/80 bg-zinc-900 text-zinc-100' : 'border-zinc-800 bg-zinc-900 text-zinc-200'
         }`;
         el.innerHTML = `
@@ -341,37 +397,88 @@
 
     let airportCatalog = [];
     let airportMap = {};
-    let currentRoutesData = null;
+    let markerMap = {};
+    let currentMultiRoute = null;
     let selectedRouteIndex = 0;
 
-    async function bootstrap() {
+    // Carregamento de Aeroportos e Povoamento do Mapa GTA
+    async function initRadar() {
       try {
         const res = await fetch('/airports');
-        if (!res.ok) throw new Error('Falha ao conectar com o catálogo de voos.');
+        if (!res.ok) throw new Error('Não foi possível obter os dados da malha.');
         airportCatalog = await res.json();
-        
+
+        const markers = [];
+
         airportCatalog.forEach(a => {
           airportMap[a.iata] = a;
+
+          if (a.lat !== 0 && a.lon !== 0) {
+            // Ícone estilo pin do GTA com o código IATA
+            const icon = L.divIcon({
+              className: 'custom-pin',
+              html: `<div class="gta-marker px-1.5 py-0.5" id="pin-${a.iata}">✈ ${a.iata}</div>`,
+              iconSize: [46, 20],
+              iconAnchor: [23, 10]
+            });
+
+            const marker = L.marker([a.lat, a.lon], { icon: icon });
+            marker.bindPopup(`
+              <div class="p-2 font-mono text-xs space-y-1">
+                <div class="font-bold text-sm text-zinc-100 flex items-center gap-1.5">
+                  <span>✈</span> ${a.iata} — ${a.city}
+                </div>
+                <div class="text-zinc-400 text-[11px]">${a.country}</div>
+                <div class="pt-2 flex gap-1.5">
+                  <button onclick="setAsOrigin('${a.iata}')" class="px-2 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold hover:bg-emerald-900">
+                    Definir Origem
+                  </button>
+                  <button onclick="setAsDest('${a.iata}')" class="px-2 py-1 rounded bg-sky-950 text-sky-300 border border-sky-800 text-[10px] font-bold hover:bg-sky-900">
+                    Definir Destino
+                  </button>
+                </div>
+              </div>
+            `);
+
+            markerMap[a.iata] = marker;
+            markers.push(marker);
+          }
         });
 
-        document.getElementById('globalStats').textContent = `${airportCatalog.length.toLocaleString('pt-BR')} AEROPORTOS / 36.826 ROTAS`;
+        airportClusterGroup.addLayers(markers);
 
+        // Define valores padrão e dispara primeira rota automática
         setAirport('origin', 'FLN');
-        setAirport('dest', 'NRT');
+        setAirport('dest', 'GIG');
+        triggerSearch();
 
       } catch (err) {
         toast.error('Erro de Inicialização', err.message);
       }
     }
 
+    window.setAsOrigin = function(code) {
+      setAirport('origin', code);
+      map.closePopup();
+      toast.success('Origem Definida', `${code} selecionado como partida.`);
+    };
+
+    window.setAsDest = function(code) {
+      setAirport('dest', code);
+      map.closePopup();
+      toast.success('Destino Definido', `${code} selecionado como chegada.`);
+      triggerSearch();
+    };
+
     function setAirport(type, code) {
       const a = airportMap[code];
       if (!a) return;
       document.getElementById(`${type}Code`).value = a.iata;
-      document.getElementById(`${type}Input`).value = `${a.city} (${a.iata}), ${a.country}`;
-      document.getElementById(`${type}IataTag`).textContent = a.iata;
+      document.getElementById(`${type}Input`).value = `${a.city} (${a.iata})`;
+      document.getElementById(`${type}Badge`).textContent = a.iata;
     }
 
+    // Autocomplete
     function setupAutocomplete(type) {
       const input = document.getElementById(`${type}Input`);
       const results = document.getElementById(`${type}Results`);
@@ -387,21 +494,21 @@
           a.iata.toLowerCase().includes(term) ||
           a.city.toLowerCase().includes(term) ||
           a.country.toLowerCase().includes(term)
-        ).slice(0, 15);
+        ).slice(0, 10);
 
         results.innerHTML = '';
         if (matches.length === 0) {
-          results.innerHTML = '<li class="px-4 py-2.5 text-zinc-500 text-[11px]">Nenhum aeroporto encontrado</li>';
+          results.innerHTML = '<li class="px-3 py-2 text-zinc-500 text-[11px]">Nenhum aeroporto</li>';
         } else {
           matches.forEach(m => {
             const li = document.createElement('li');
-            li.className = 'px-4 py-2.5 hover:bg-zinc-800 cursor-pointer flex items-center justify-between transition-colors duration-100';
+            li.className = 'px-3 py-2 hover:bg-zinc-800 cursor-pointer flex items-center justify-between transition-colors';
             li.innerHTML = `
               <div>
                 <span class="font-medium text-zinc-200">${m.city}</span>
-                <span class="text-zinc-500 text-[11px] ml-1.5">${m.country}</span>
+                <span class="text-zinc-500 text-[10px] ml-1">${m.country}</span>
               </div>
-              <span class="font-mono font-bold text-xs text-zinc-400 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">${m.iata}</span>
+              <span class="font-mono font-bold text-[10px] text-zinc-400 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">${m.iata}</span>
             `;
             li.addEventListener('click', () => {
               setAirport(type, m.iata);
@@ -429,217 +536,240 @@
       setAirport('origin', dCode);
       setAirport('dest', oCode);
       toast.success('Inversão Efetuada', `${dCode} ➔ ${oCode}`);
+      triggerSearch();
     });
 
-    // Desenhar Rota no Mapa com Linhas Curvas Geodésicas
-    function drawRouteOnMap(route) {
-      routeLayersGroup.clearLayers();
+    document.getElementById('resetViewBtn').addEventListener('click', () => {
+      map.setView([-10, -50], 4);
+    });
+
+    // Minimizar / Expandir Painel
+    let isCollapsed = false;
+    document.getElementById('toggleCollapseBtn').addEventListener('click', () => {
+      isCollapsed = !isCollapsed;
+      const panel = document.getElementById('panelBody');
+      const icon = document.getElementById('collapseIcon');
+      if (isCollapsed) {
+        panel.classList.add('hidden');
+        icon.setAttribute('data-lucide', 'chevron-down');
+      } else {
+        panel.classList.remove('hidden');
+        icon.setAttribute('data-lucide', 'chevron-up');
+      }
+      lucide.createIcons();
+    });
+
+    // Desenhar Rota Geodésica no Mapa
+    function renderRouteOnMap(route) {
+      flightPathGroup.clearLayers();
       const bounds = L.latLngBounds();
 
-      // Marcadores dos Aeroportos
+      // Remove destaque anterior
+      document.querySelectorAll('.gta-marker').forEach(el => el.classList.remove('active-pin'));
+
       route.path.forEach((code, idx) => {
         const a = airportMap[code];
         if (!a || (a.lat === 0 && a.lon === 0)) return;
 
         bounds.extend([a.lat, a.lon]);
 
-        const isTerminal = idx === 0 || idx === route.path.length - 1;
-        const color = isTerminal ? '#f4f4f5' : '#a1a1aa';
-        const radius = isTerminal ? 6 : 4;
+        const pin = document.getElementById(`pin-${code}`);
+        if (pin) pin.classList.add('active-pin');
 
-        const marker = L.circleMarker([a.lat, a.lon], {
-          radius: radius,
+        // Marcador luminoso no nó
+        const isOrigin = idx === 0;
+        const isDest = idx === route.path.length - 1;
+        const color = isOrigin ? '#34d399' : (isDest ? '#38bdf8' : '#fbbf24');
+
+        L.circleMarker([a.lat, a.lon], {
+          radius: isOrigin || isDest ? 7 : 5,
           fillColor: color,
           color: '#090a0f',
           weight: 2,
           opacity: 1,
           fillOpacity: 1
-        }).addTo(routeLayersGroup);
-
-        marker.bindPopup(`<strong>${a.iata}</strong> — ${a.city}, ${a.country}`);
+        }).addTo(flightPathGroup).bindPopup(`<strong>${a.iata}</strong> — ${a.city}`);
       });
 
-      // Curvas Geodésicas conectando os segmentos
-      route.segments.forEach((seg, i) => {
-        if (seg.from_lat === 0 && seg.from_lon === 0) return;
-        if (seg.to_lat === 0 && seg.to_lon === 0) return;
+      // Desenha arcos de voo
+      route.segments.forEach(seg => {
+        if (seg.from_lat === 0 || seg.to_lat === 0) return;
 
-        // Ponto de controle para arco curvilíneo da Terra
-        const midLat = (seg.from_lat + seg.to_lat) / 2 + (Math.abs(seg.to_lon - seg.from_lon) > 30 ? 10 : 3);
+        const midLat = (seg.from_lat + seg.to_lat) / 2 + (Math.abs(seg.to_lon - seg.from_lon) > 20 ? 8 : 2);
         const midLon = (seg.from_lon + seg.to_lon) / 2;
 
-        const curve = L.curve(
+        L.curve(
           ['M', [seg.from_lat, seg.from_lon], 'Q', [midLat, midLon], [seg.to_lat, seg.to_lon]],
           {
             color: '#38bdf8',
-            weight: 2.5,
-            opacity: 0.85,
-            dashArray: '6, 6'
+            weight: 3,
+            opacity: 0.9,
+            dashArray: '8, 8'
           }
-        ).addTo(routeLayersGroup);
+        ).addTo(flightPathGroup);
       });
 
       if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [40, 40] });
+        map.fitBounds(bounds, { padding: [80, 80] });
       }
     }
 
-    // Renderizar Abas das Top 3 Rotas
-    function renderRoutesUI(data) {
-      currentRoutesData = data;
+    // Renderizar Abas de Opções Estilo Google Maps Transit
+    function renderRouteCards(data) {
+      currentMultiRoute = data;
       selectedRouteIndex = 0;
 
-      const tabsContainer = document.getElementById('routeTabs');
-      tabsContainer.innerHTML = '';
+      const container = document.getElementById('transitCards');
+      container.innerHTML = '';
 
       data.routes.forEach((route, idx) => {
         const isSelected = idx === 0;
-        const btn = document.createElement('div');
-        btn.className = `route-tab p-4 rounded-xl border cursor-pointer transition-all duration-150 ${
+        const card = document.createElement('div');
+        card.className = `transit-card p-3 rounded-xl border cursor-pointer transition-all ${
           isSelected 
-            ? 'border-sky-500 bg-sky-950/20 shadow-md ring-1 ring-sky-500/50' 
-            : 'border-zinc-800 bg-zinc-950 hover:bg-zinc-900/60'
+            ? 'border-sky-500 bg-sky-950/30 shadow-md ring-1 ring-sky-500/50' 
+            : 'border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900'
         }`;
 
-        btn.innerHTML = `
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded ${
-              idx === 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-400'
-            }">
-              ${idx === 0 ? '★ Melhor Escolha' : `Opção ${idx + 1}`}
-            </span>
-            <span class="font-mono text-xs font-semibold text-zinc-400">${route.stops === 0 ? 'Direto' : `${route.stops} escala(s)`}</span>
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                idx === 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400'
+              }">
+                ${idx === 0 ? '★ Recomendada' : `Opção ${idx + 1}`}
+              </span>
+              <span class="text-[11px] font-mono text-zinc-400 font-bold">${route.stops === 0 ? 'Direto' : `${route.stops} escala(s)`}</span>
+            </div>
+            <div class="font-mono font-bold text-sm text-white">$${route.total_price.toLocaleString('en-US')}</div>
           </div>
 
-          <div class="flex items-baseline justify-between">
-            <div class="font-mono text-lg font-bold text-white">$${route.total_price.toLocaleString('en-US')}</div>
-            <div class="font-mono text-xs text-zinc-400">${route.total_duration}h voo</div>
-          </div>
-
-          <div class="mt-2 text-[11px] font-mono text-zinc-500 truncate">
-            ${route.path.join(' ➔ ')}
+          <div class="flex items-center justify-between text-[11px] font-mono text-zinc-400">
+            <div class="flex items-center gap-1">
+              <i data-lucide="clock" class="w-3 h-3 text-zinc-500"></i>
+              <span>${route.total_duration}h de viagem</span>
+            </div>
+            <div class="truncate max-w-[170px] text-zinc-500 text-[10px]">
+              ${route.path.join(' → ')}
+            </div>
           </div>
         `;
 
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('.route-tab').forEach((el, i) => {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.transit-card').forEach((el, i) => {
             if (i === idx) {
-              el.className = 'route-tab p-4 rounded-xl border cursor-pointer transition-all duration-150 border-sky-500 bg-sky-950/20 shadow-md ring-1 ring-sky-500/50';
+              el.className = 'transit-card p-3 rounded-xl border cursor-pointer transition-all border-sky-500 bg-sky-950/30 shadow-md ring-1 ring-sky-500/50';
             } else {
-              el.className = 'route-tab p-4 rounded-xl border cursor-pointer transition-all duration-150 border-zinc-800 bg-zinc-950 hover:bg-zinc-900/60';
+              el.className = 'transit-card p-3 rounded-xl border cursor-pointer transition-all border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900';
             }
           });
           selectedRouteIndex = idx;
-          renderActiveDetail(data.routes[idx]);
-          drawRouteOnMap(data.routes[idx]);
+          renderItinerary(data.routes[idx]);
+          renderRouteOnMap(data.routes[idx]);
         });
 
-        tabsContainer.appendChild(btn);
+        container.appendChild(card);
       });
 
-      renderActiveDetail(data.routes[0]);
-      drawRouteOnMap(data.routes[0]);
+      renderItinerary(data.routes[0]);
+      renderRouteOnMap(data.routes[0]);
+      lucide.createIcons();
     }
 
-    // Renderizar Detalhes dos Trechos da Rota Ativa
-    function renderActiveDetail(route) {
-      const container = document.getElementById('activeRouteDetail');
-      container.innerHTML = `
-        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800 pb-3">
-          <div>
-            <div class="text-[11px] font-mono text-zinc-400 uppercase">Trajeto Selecionado</div>
-            <div class="text-base font-display font-bold text-white mt-0.5">
-              ${route.path.join(' ➔ ')}
+    // Renderizar o Itinerário Detalhado Estilo Viagem do Google Maps
+    function renderItinerary(route) {
+      const container = document.getElementById('itineraryDetail');
+      
+      let segmentsHtml = '';
+      route.segments.forEach((seg, i) => {
+        const src = airportMap[seg.from_airport] || { city: seg.from_airport };
+        const dst = airportMap[seg.to_airport] || { city: seg.to_airport };
+
+        segmentsHtml += `
+          <div class="relative pl-6 pb-4 last:pb-0">
+            <!-- Linha vertical da conexão -->
+            <div class="absolute left-2 top-2.5 bottom-0 w-0.5 bg-zinc-800 last:hidden"></div>
+            <!-- Ponto do nó -->
+            <div class="absolute left-0.5 top-1.5 w-3.5 h-3.5 rounded-full bg-zinc-900 border-2 border-sky-400 flex items-center justify-center">
+              <div class="w-1 h-1 rounded-full bg-sky-400"></div>
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-xs font-semibold text-zinc-200">
+                <span>${seg.from_airport} — ${src.city}</span>
+                <span class="font-mono text-[11px] text-zinc-400">$${seg.price}</span>
+              </div>
+              <div class="text-[11px] font-mono text-zinc-500 flex items-center gap-2">
+                <span>Voo Direto (${seg.duration}h)</span>
+                <span>•</span>
+                <span class="text-zinc-600">Comercial Regular</span>
+              </div>
+              <div class="text-xs font-semibold text-zinc-300 pt-1">
+                ➔ ${seg.to_airport} — ${dst.city}
+              </div>
             </div>
           </div>
-          <div class="flex items-center gap-4 text-xs font-mono">
-            <div><span class="text-zinc-500">CUSTO:</span> <span class="font-bold text-white">$${route.total_price} USD</span></div>
-            <div><span class="text-zinc-500">DURAÇÃO:</span> <span class="font-bold text-white">${route.total_duration}h</span></div>
-          </div>
-        </div>
+        `;
+      });
 
-        <div class="space-y-2 pt-1">
-          ${route.segments.map((seg, i) => {
-            const src = airportMap[seg.from_airport] || { city: seg.from_airport, country: '' };
-            const dst = airportMap[seg.to_airport] || { city: seg.to_airport, country: '' };
-            return `
-              <div class="p-3 rounded-lg border border-zinc-800/60 bg-zinc-950 flex items-center justify-between text-xs">
-                <div class="flex items-center gap-3">
-                  <span class="w-5 h-5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-[10px] flex items-center justify-center font-bold">${i + 1}</span>
-                  <div>
-                    <span class="font-semibold text-zinc-200">${src.city} (${seg.from_airport}) ➔ ${dst.city} (${seg.to_airport})</span>
-                    <span class="text-[11px] text-zinc-500 ml-2">${dst.country}</span>
-                  </div>
-                </div>
-                <div class="font-mono text-zinc-300">
-                  <span class="font-bold text-white">$${seg.price}</span>
-                  <span class="text-zinc-600 ml-1.5">• ${seg.duration}h</span>
-                </div>
-              </div>
-            `;
-          }).join('')}
+      container.innerHTML = `
+        <div class="p-3.5 rounded-xl bg-zinc-900/70 border border-zinc-800/80 space-y-3">
+          <div class="flex items-center justify-between text-xs font-mono">
+            <span class="font-bold text-zinc-200 uppercase tracking-wider">Itinerário de Voo</span>
+            <span class="text-emerald-400 font-bold">$${route.total_price} USD</span>
+          </div>
+          <div class="pt-1">
+            ${segmentsHtml}
+          </div>
         </div>
       `;
     }
 
     // Disparo de Busca
-    document.getElementById('flightForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
+    async function triggerSearch() {
       const origin = document.getElementById('originCode').value;
       const destination = document.getElementById('destCode').value;
       const criteria = document.querySelector('input[name="criteria"]:checked').value;
 
-      if (!origin || !destination) {
-        toast.error('Campos Inválidos', 'Defina aeroportos válidos.');
-        return;
-      }
+      if (!origin || !destination) return;
 
-      const sInitial = document.getElementById('stateInitial');
+      const sEmpty = document.getElementById('stateEmpty');
       const sLoading = document.getElementById('stateLoading');
-      const sError = document.getElementById('stateError');
-      const sSuccess = document.getElementById('stateSuccess');
-      const btn = document.getElementById('calculateBtn');
-      const btnLabel = document.getElementById('btnLabel');
+      const rResults = document.getElementById('routeResults');
 
-      sInitial.classList.add('hidden');
-      sError.classList.add('hidden');
-      sSuccess.classList.add('hidden');
+      sEmpty.classList.add('hidden');
+      rResults.classList.add('hidden');
       sLoading.classList.remove('hidden');
-
-      btn.disabled = true;
-      btnLabel.textContent = 'Calculando Yen K-Paths...';
 
       try {
         const res = await fetch(`/search?origin=${origin}&destination=${destination}&criteria=${criteria}&k=3`);
         const data = await res.json();
 
         sLoading.classList.add('hidden');
-        btn.disabled = false;
-        btnLabel.textContent = 'Traçar Top 3 Rotas no Globo';
 
         if (!res.ok) {
-          document.getElementById('errorMessage').textContent = data.detail || 'Não foi possível encontrar uma rota disponível.';
-          sError.classList.remove('hidden');
-          toast.error('Rota Inacessível', data.detail);
+          toast.error('Rota Indisponível', data.detail);
+          sEmpty.classList.remove('hidden');
           return;
         }
 
-        renderRoutesUI(data);
-        sSuccess.classList.remove('hidden');
-        toast.success('Top 3 Rotas Calculadas', `${data.total_found} alternativas traçadas no mapa.`);
+        renderRouteCards(data);
+        rResults.classList.remove('hidden');
+        toast.success('Radar Atualizado', `${data.total_found} alternativas traçadas no mapa.`);
 
       } catch (err) {
         sLoading.classList.add('hidden');
-        btn.disabled = false;
-        btnLabel.textContent = 'Traçar Top 3 Rotas no Globo';
-        document.getElementById('errorMessage').textContent = 'Erro de comunicação ao calcular as rotas.';
-        sError.classList.remove('hidden');
+        sEmpty.classList.remove('hidden');
         toast.error('Erro de Rede', err.message);
       }
+    }
+
+    document.getElementById('radarForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      triggerSearch();
     });
 
-    bootstrap();
+    initRadar();
     lucide.createIcons();
   </script>
 </body>
