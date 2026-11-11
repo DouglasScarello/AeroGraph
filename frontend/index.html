@@ -1,24 +1,24 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="h-full bg-zinc-950 text-zinc-100">
+<html lang="pt-BR" class="h-full">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AirCrazyScarello — Otimizador de Malha Aérea</title>
+  <title>AirCrazyScarello — Global Flight Navigation Engine</title>
   
-  <!-- Tipografia Limpa: Inter -->
+  <!-- Tipografia Editorial: Syne + Inter + JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            display: ['Syne', 'sans-serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
             mono: ['JetBrains Mono', 'monospace'],
           },
         }
@@ -30,12 +30,39 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* Reset e foco acessível no padrão shadcn */
-    *:focus-visible {
-      outline: 2px solid #71717a;
-      outline-offset: 2px;
+    /* Radar Grid & Cartographic Canvas */
+    body {
+      background-color: #090a0f;
+      background-image: 
+        radial-gradient(ellipse 90% 40% at 50% -10%, rgba(24, 45, 65, 0.45), transparent 70%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 48px 48px, 48px 48px;
     }
-    /* Estilização para o container Sonner-like */
+
+    /* Traçado e conexões elegantes */
+    .flight-dash {
+      background-image: linear-gradient(to right, #52525b 50%, transparent 50%);
+      background-size: 8px 1px;
+      background-repeat: repeat-x;
+    }
+
+    /* Autocomplete dropdown list styling */
+    .autocomplete-list {
+      max-height: 240px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #27272a #090a0f;
+    }
+    .autocomplete-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    .autocomplete-list::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 4px;
+    }
+
+    /* Sonner Toast */
     #toast-container {
       position: fixed;
       bottom: 24px;
@@ -48,9 +75,9 @@
     }
     .toast {
       pointer-events: auto;
-      transform: translateY(10px);
+      transform: translateY(12px);
       opacity: 0;
-      transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
     }
     .toast.show {
       transform: translateY(0);
@@ -58,479 +85,490 @@
     }
   </style>
 </head>
-<body class="h-full flex flex-col font-sans antialiased bg-zinc-950 text-zinc-200">
+<body class="min-h-full flex flex-col font-sans text-zinc-300 antialiased selection:bg-zinc-800 selection:text-zinc-100">
 
-  <!-- Container de Toasts (Sonner style) -->
-  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+  <!-- Toast Container -->
+  <div id="toast-container" aria-live="polite"></div>
 
-  <!-- Header Semântico e Minimalista -->
-  <header class="border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur sticky top-0 z-40">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+  <!-- Barra de Topo Minimalista & Aeronáutica -->
+  <header class="border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-md bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-100">
-          <i data-lucide="plane-takeoff" class="w-4 h-4 text-zinc-200"></i>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="font-semibold text-sm text-zinc-100 tracking-tight">AirCrazyScarello</span>
-          <span class="text-zinc-500 text-xs">/</span>
-          <span class="text-xs text-zinc-400">Route Engine</span>
-        </div>
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+        <span class="font-display font-extrabold text-sm tracking-wider text-zinc-100 uppercase">
+          AirCrazy<span class="text-zinc-500">.</span>Scarello
+        </span>
+        <span class="text-zinc-600 text-xs">•</span>
+        <span class="text-[11px] font-mono text-zinc-400">Global Dijkstra Flight Engine</span>
       </div>
 
-      <nav class="flex items-center gap-3">
-        <a href="/docs" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-colors duration-150">
-          <i data-lucide="file-code" class="w-3.5 h-3.5"></i>
-          <span>Swagger API</span>
-        </a>
-        <div class="h-4 w-px bg-zinc-800"></div>
-        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-medium text-zinc-400">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span>Dijkstra v1.0</span>
+      <div class="flex items-center gap-4 text-xs font-mono">
+        <div class="hidden sm:flex items-center gap-2 text-zinc-500">
+          <span>MALHA MUNDIAL:</span>
+          <span class="text-zinc-300 font-semibold" id="globalStats">3.224 AEROPORTOS / 36.826 ROTAS</span>
         </div>
-      </nav>
+        <a href="/docs" target="_blank" class="px-2.5 py-1 rounded border border-zinc-800 hover:border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 transition-colors duration-150">
+          API /docs
+        </a>
+      </div>
     </div>
   </header>
 
-  <!-- Layout Principal Semântico: Formulário + Painel de Resultados -->
-  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+  <!-- Hero & Console Unificado (Sem cara de blocos soltos) -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-10 flex flex-col">
     
-    <!-- Coluna Esquerda: Formulário de Parâmetros -->
-    <section class="lg:col-span-5 space-y-4" aria-labelledby="params-title">
-      <div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 shadow-sm">
-        
-        <div class="mb-5">
-          <h1 id="params-title" class="text-sm font-semibold text-zinc-100 tracking-tight">Parâmetros de Roteamento</h1>
-          <p class="text-xs text-zinc-400 mt-1">Calcule o caminho ótimo na malha de grafos por custo ou tempo de voo.</p>
-        </div>
-
-        <form id="routeForm" class="space-y-4" novalidate>
-          
-          <!-- Aeroporto Origem -->
-          <div class="space-y-1.5">
-            <label for="originSelect" class="block text-xs font-medium text-zinc-300">
-              Aeroporto de Origem
-            </label>
-            <div class="relative">
-              <select id="originSelect" name="origin" required disabled class="w-full h-9 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs text-zinc-200 shadow-sm transition-colors duration-150 focus:border-zinc-500 focus:bg-zinc-900 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">
-                <option value="" disabled selected>Carregando aeroportos...</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Botão Inverter (Micro-interação minimalista) -->
-          <div class="flex justify-center -my-1">
-            <button type="button" id="swapBtn" disabled aria-label="Inverter origem e destino" class="inline-flex items-center justify-center h-7 w-7 rounded-md border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs">
-              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-
-          <!-- Aeroporto Destino -->
-          <div class="space-y-1.5">
-            <label for="destSelect" class="block text-xs font-medium text-zinc-300">
-              Aeroporto de Destino
-            </label>
-            <div class="relative">
-              <select id="destSelect" name="destination" required disabled class="w-full h-9 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs text-zinc-200 shadow-sm transition-colors duration-150 focus:border-zinc-500 focus:bg-zinc-900 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">
-                <option value="" disabled selected>Carregando aeroportos...</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Critério de Otimização (Radio Cards) -->
-          <fieldset class="space-y-1.5 pt-1">
-            <legend class="block text-xs font-medium text-zinc-300 mb-1.5">
-              Critério de Otimização
-            </legend>
-            <div class="grid grid-cols-2 gap-2" role="radiogroup">
-              
-              <label class="flex items-start gap-2.5 p-3 rounded-md border border-zinc-800 bg-zinc-950 cursor-pointer transition-colors duration-150 hover:bg-zinc-900/80 hover:border-zinc-700 has-[:checked]:border-zinc-500 has-[:checked]:bg-zinc-900">
-                <input type="radio" name="criteria" value="price" checked class="mt-0.5 text-zinc-100 bg-zinc-900 border-zinc-700 focus:ring-0 focus:ring-offset-0">
-                <div class="space-y-0.5">
-                  <span class="block text-xs font-medium text-zinc-200">Menor Custo</span>
-                  <span class="block text-[11px] text-zinc-400">Minimizar valor total</span>
-                </div>
-              </label>
-
-              <label class="flex items-start gap-2.5 p-3 rounded-md border border-zinc-800 bg-zinc-950 cursor-pointer transition-colors duration-150 hover:bg-zinc-900/80 hover:border-zinc-700 has-[:checked]:border-zinc-500 has-[:checked]:bg-zinc-900">
-                <input type="radio" name="criteria" value="duration" class="mt-0.5 text-zinc-100 bg-zinc-900 border-zinc-700 focus:ring-0 focus:ring-offset-0">
-                <div class="space-y-0.5">
-                  <span class="block text-xs font-medium text-zinc-200">Menor Tempo</span>
-                  <span class="block text-[11px] text-zinc-400">Minimizar horas de voo</span>
-                </div>
-              </label>
-
-            </div>
-          </fieldset>
-
-          <!-- Botão de Ação Primário (shadcn button standard) -->
-          <div class="pt-2">
-            <button type="submit" id="submitBtn" disabled class="w-full inline-flex items-center justify-center gap-2 h-9 px-4 rounded-md text-xs font-medium text-zinc-950 bg-zinc-100 hover:bg-zinc-200 active:bg-zinc-300 transition-colors duration-150 shadow-sm disabled:opacity-50 disabled:pointer-events-none">
-              <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-950"></i>
-              <span id="btnText">Calcular Rota</span>
-            </button>
-          </div>
-
-        </form>
+    <!-- Hero Editorial de Abertura -->
+    <div class="mb-8">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400 mb-4">
+        <span>RADAR DE MALHA COMERCIAL</span>
+        <span class="text-zinc-600">/</span>
+        <span class="text-emerald-400">OPENFLIGHTS VERIFIED</span>
       </div>
+      <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-zinc-100 max-w-3xl leading-tight">
+        Navegação global e cálculo de menores caminhos na aviação.
+      </h1>
+      <p class="text-sm text-zinc-400 mt-3 max-w-2xl leading-relaxed">
+        Pesquise entre milhares de aeroportos comerciais do planeta. A engine analisa conexões em grafos e processa tarifas e durações reais via Dijkstra.
+      </p>
+    </div>
 
-      <!-- Informação de Domínio / Algoritmo -->
-      <div class="rounded-lg border border-zinc-800/80 bg-zinc-900/30 p-4 text-xs text-zinc-400 space-y-1.5">
-        <div class="font-medium text-zinc-300 flex items-center gap-1.5">
-          <i data-lucide="info" class="w-3.5 h-3.5 text-zinc-400"></i>
-          <span>Algoritmo de Dijkstra</span>
-        </div>
-        <p class="leading-relaxed text-[11px] text-zinc-400">
-          A malha é modelada como um dígrafo ponderado. O algoritmo encontra a menor distância acumulada expandindo nós com heap de prioridade mínima.
-        </p>
-      </div>
-    </section>
-
-    <!-- Coluna Direita: Estados Visíveis e Painel de Resposta -->
-    <section class="lg:col-span-7" aria-labelledby="results-title">
+    <!-- O CONSOLE DE ROTA: Interface Única e Contínua (Estilo Flight Booking Terminal) -->
+    <div class="rounded-2xl border border-zinc-800 bg-zinc-950/80 backdrop-blur-xl shadow-2xl p-6 sm:p-8 space-y-6">
       
-      <!-- 1. Estado Inicial (Empty State) -->
-      <div id="emptyState" class="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/20 p-12 text-center min-h-[360px] flex flex-col items-center justify-center">
-        <div class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 mb-3">
-          <i data-lucide="compass" class="w-5 h-5"></i>
-        </div>
-        <h2 id="results-title" class="text-sm font-semibold text-zinc-200">Nenhum cálculo efetuado</h2>
-        <p class="text-xs text-zinc-400 mt-1 max-w-xs leading-relaxed">
-          Defina o ponto de partida e o destino desejado no painel lateral para processar a rota ótima.
-        </p>
-      </div>
-
-      <!-- 2. Estado de Carregamento (Loading Skeleton) -->
-      <div id="loadingState" class="hidden rounded-lg border border-zinc-800 bg-zinc-900/40 p-6 space-y-5 animate-pulse min-h-[360px]" aria-busy="true">
-        <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
-          <div class="space-y-2">
-            <div class="h-3 w-20 bg-zinc-800 rounded"></div>
-            <div class="h-6 w-36 bg-zinc-800 rounded"></div>
-          </div>
-          <div class="flex gap-4">
-            <div class="h-8 w-20 bg-zinc-800 rounded"></div>
-            <div class="h-8 w-20 bg-zinc-800 rounded"></div>
-          </div>
-        </div>
-        <div class="h-10 w-full bg-zinc-800/60 rounded"></div>
-        <div class="space-y-3 pt-2">
-          <div class="h-12 w-full bg-zinc-800/40 rounded"></div>
-          <div class="h-12 w-full bg-zinc-800/40 rounded"></div>
-        </div>
-      </div>
-
-      <!-- 3. Estado de Erro (Error Handling) -->
-      <div id="errorState" class="hidden rounded-lg border border-red-900/50 bg-red-950/20 p-4 text-xs text-red-300" role="alert">
-        <div class="flex items-start gap-3">
-          <i data-lucide="alert-circle" class="w-4 h-4 text-red-400 mt-0.5 shrink-0"></i>
-          <div class="space-y-1">
-            <h3 class="font-semibold text-red-200">Falha na Requisição</h3>
-            <p id="errorMessage" class="text-red-300/90 leading-relaxed"></p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4. Estado de Sucesso / Resultados -->
-      <div id="resultCard" class="hidden space-y-4">
+      <!-- Linha Unificada de Busca (Origem, Swap, Destino, Critério, Botão) -->
+      <form id="flightForm" class="space-y-6" novalidate>
         
-        <!-- Sumário Superior -->
-        <div class="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
           
-          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800 pb-4">
-            <div>
-              <span id="resCriteriaBadge" class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
-                Menor Custo
-              </span>
-              <div class="flex items-center gap-2 mt-2">
-                <span id="resOriginCode" class="text-xl font-bold font-mono text-zinc-100">GRU</span>
-                <i data-lucide="arrow-right" class="w-4 h-4 text-zinc-500"></i>
-                <span id="resDestCode" class="text-xl font-bold font-mono text-zinc-100">LHR</span>
-              </div>
+          <!-- Campo Origem com Autocomplete Instantâneo -->
+          <div class="md:col-span-5 relative" id="originContainer">
+            <label class="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+              <span>Origem (Partida)</span>
+              <span id="originIataTag" class="text-zinc-500 font-bold">GRU</span>
+            </label>
+            <div class="relative">
+              <input 
+                type="text" 
+                id="originInput"
+                placeholder="Ex: Florianópolis, GRU, Paris..." 
+                autocomplete="off"
+                required
+                class="w-full h-12 bg-zinc-900/90 border border-zinc-800 rounded-xl px-4 text-sm text-zinc-100 font-medium placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors duration-150"
+              />
+              <input type="hidden" id="originCode" value="GRU">
+              <i data-lucide="plane-takeoff" class="w-4 h-4 text-zinc-500 absolute right-4 top-4 pointer-events-none"></i>
             </div>
-
-            <!-- Métricas Principais -->
-            <div class="flex items-center gap-6">
-              <div class="text-right">
-                <span class="block text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Custo</span>
-                <span id="resTotalPrice" class="text-lg font-bold font-mono text-zinc-100">$0</span>
-              </div>
-              <div class="h-8 w-px bg-zinc-800"></div>
-              <div class="text-right">
-                <span class="block text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Duração</span>
-                <span id="resTotalDuration" class="text-lg font-bold font-mono text-zinc-100">0h</span>
-              </div>
-              <div class="h-8 w-px bg-zinc-800"></div>
-              <div class="text-right">
-                <span class="block text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Escalas</span>
-                <span id="resStops" class="text-lg font-bold font-mono text-zinc-100">0</span>
-              </div>
-            </div>
+            <!-- Lista Flutuante de Autocomplete -->
+            <ul id="originResults" class="autocomplete-list hidden absolute left-0 right-0 top-full mt-1.5 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 py-1.5 text-xs divide-y divide-zinc-800/40"></ul>
           </div>
 
-          <!-- Nós do Trajeto no Grafo -->
-          <div>
-            <span class="block text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
-              Sequência de Nós no Grafo
-            </span>
-            <nav id="routePathNodes" aria-label="Trajeto da rota" class="flex flex-wrap items-center gap-2"></nav>
+          <!-- Botão Inverter Centralizado -->
+          <div class="md:col-span-2 flex justify-center pt-5 md:pt-4">
+            <button 
+              type="button" 
+              id="swapBtn"
+              title="Inverter Origem e Destino"
+              class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-150 active:scale-95 shadow-sm"
+            >
+              <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Campo Destino com Autocomplete Instantâneo -->
+          <div class="md:col-span-5 relative" id="destContainer">
+            <label class="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+              <span>Destino (Chegada)</span>
+              <span id="destIataTag" class="text-zinc-500 font-bold">NRT</span>
+            </label>
+            <div class="relative">
+              <input 
+                type="text" 
+                id="destInput"
+                placeholder="Ex: Tóquio, Miami, LHR..." 
+                autocomplete="off"
+                required
+                class="w-full h-12 bg-zinc-900/90 border border-zinc-800 rounded-xl px-4 text-sm text-zinc-100 font-medium placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors duration-150"
+              />
+              <input type="hidden" id="destCode" value="NRT">
+              <i data-lucide="plane-landing" class="w-4 h-4 text-zinc-500 absolute right-4 top-4 pointer-events-none"></i>
+            </div>
+            <!-- Lista Flutuante de Autocomplete -->
+            <ul id="destResults" class="autocomplete-list hidden absolute left-0 right-0 top-full mt-1.5 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 py-1.5 text-xs divide-y divide-zinc-800/40"></ul>
           </div>
 
         </div>
 
-        <!-- Tabela / Lista de Trechos Detalhados -->
-        <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-5 space-y-3">
-          <div class="flex items-center justify-between">
-            <h3 class="text-xs font-semibold text-zinc-200 uppercase tracking-wider">
-              Segmentos de Voo da Conexão
-            </h3>
-            <span id="segmentsCount" class="text-[11px] text-zinc-400"></span>
+        <!-- Seletor de Critério e Botão de Disparo em Linha -->
+        <div class="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-900">
+          
+          <div class="flex items-center gap-2 bg-zinc-900/60 p-1.5 rounded-xl border border-zinc-800/80">
+            <label class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors duration-150 text-zinc-400 has-[:checked]:bg-zinc-800 has-[:checked]:text-zinc-100">
+              <input type="radio" name="criteria" value="price" checked class="hidden">
+              <i data-lucide="banknote" class="w-3.5 h-3.5"></i>
+              <span>Otimizar por Preço</span>
+            </label>
+
+            <label class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors duration-150 text-zinc-400 has-[:checked]:bg-zinc-800 has-[:checked]:text-zinc-100">
+              <input type="radio" name="criteria" value="duration" class="hidden">
+              <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+              <span>Mais Rápido (Tempo)</span>
+            </label>
           </div>
 
-          <div id="segmentsList" class="space-y-2 pt-1"></div>
+          <button 
+            type="submit" 
+            id="calculateBtn"
+            class="w-full sm:w-auto h-11 px-8 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs tracking-wide transition-all duration-150 shadow-md flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+          >
+            <i data-lucide="navigation-2" class="w-4 h-4 text-zinc-950 fill-zinc-950"></i>
+            <span id="btnLabel">Traçar Rota no Grafo</span>
+          </button>
+
+        </div>
+
+      </form>
+
+      <!-- SEÇÃO DE RESULTADOS INTEGRADA (Tudo em uma só experiência visual contínua) -->
+      <div id="resultsZone" class="pt-6 border-t border-zinc-800/60">
+        
+        <!-- Estado Inicial Discreto -->
+        <div id="stateInitial" class="py-10 text-center flex flex-col items-center justify-center">
+          <div class="w-12 h-12 rounded-full border border-zinc-800 bg-zinc-900/50 flex items-center justify-center text-zinc-600 mb-3">
+            <i data-lucide="globe" class="w-5 h-5"></i>
+          </div>
+          <p class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Aguardando coordenadas de voo</p>
+          <p class="text-[11px] text-zinc-600 mt-1">Selecione as cidades ou códigos IATA acima para navegar na malha.</p>
+        </div>
+
+        <!-- Skeleton Loading Pulsante -->
+        <div id="stateLoading" class="hidden py-8 space-y-4 animate-pulse">
+          <div class="h-6 w-48 bg-zinc-800 rounded"></div>
+          <div class="h-20 w-full bg-zinc-900 border border-zinc-800 rounded-xl"></div>
+          <div class="h-24 w-full bg-zinc-900 border border-zinc-800 rounded-xl"></div>
+        </div>
+
+        <!-- Alerta de Erro -->
+        <div id="stateError" class="hidden p-4 rounded-xl border border-red-900/50 bg-red-950/20 text-xs text-red-300 flex items-start gap-3">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 shrink-0 mt-0.5"></i>
+          <div>
+            <div class="font-semibold text-red-200">Sem conexão disponível</div>
+            <div id="errorMessage" class="text-red-300/80 mt-0.5"></div>
+          </div>
+        </div>
+
+        <!-- ROTA ENCONTRADA: Apresentação em Fita de Embarque Contínua -->
+        <div id="stateSuccess" class="hidden space-y-6">
+          
+          <!-- Metrô / Fita Contínua do Voo -->
+          <div class="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/40 space-y-6">
+            
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <span id="routeBadge" class="text-[10px] font-mono uppercase tracking-widest text-zinc-400">
+                  CRITÉRIO: MENOR CUSTO
+                </span>
+                <div class="flex items-center gap-3 mt-1">
+                  <span id="outOriginIATA" class="font-display text-2xl font-bold text-white">GRU</span>
+                  <span class="text-zinc-600 font-mono">────✈────</span>
+                  <span id="outDestIATA" class="font-display text-2xl font-bold text-white">NRT</span>
+                </div>
+              </div>
+
+              <!-- Cartões de Dados Primários -->
+              <div class="flex items-center gap-6 font-mono">
+                <div class="text-right">
+                  <span class="block text-[10px] text-zinc-500 uppercase">Tarifa Total</span>
+                  <span id="outPrice" class="text-xl font-bold text-zinc-100 font-mono">$0 USD</span>
+                </div>
+                <div class="h-8 w-px bg-zinc-800"></div>
+                <div class="text-right">
+                  <span class="block text-[10px] text-zinc-500 uppercase">Tempo no Ar</span>
+                  <span id="outDuration" class="text-xl font-bold text-zinc-100 font-mono">0h</span>
+                </div>
+                <div class="h-8 w-px bg-zinc-800"></div>
+                <div class="text-right">
+                  <span class="block text-[10px] text-zinc-500 uppercase">Conexões</span>
+                  <span id="outStops" class="text-xl font-bold text-zinc-100 font-mono">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Traçado Sequencial de Aeroportos -->
+            <div class="pt-2">
+              <span class="block text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-3">
+                Trajetória Calculada no Grafo Mundial
+              </span>
+              <div id="pathTimeline" class="flex flex-wrap items-center gap-3"></div>
+            </div>
+
+          </div>
+
+          <!-- Detalhamento Individual de Trechos de Voo -->
+          <div class="space-y-3">
+            <h3 class="text-xs font-mono uppercase tracking-wider text-zinc-400 flex items-center justify-between">
+              <span>Segmentos Operacionais</span>
+              <span id="segmentsSummary" class="text-zinc-500"></span>
+            </h3>
+
+            <div id="segmentsList" class="space-y-2"></div>
+          </div>
+
         </div>
 
       </div>
 
-    </section>
+    </div>
 
   </main>
 
-  <!-- Script da Aplicação com Micro-interações e Sonner Toast -->
+  <!-- Script da Aplicação: Motor de Autocomplete + Dijkstra Bridge -->
   <script>
-    // Sistema Sonner-style Toast
+    // Notificações Sonner
     const toast = {
-      show(title, description = '', type = 'info') {
+      show(title, desc = '', isError = false) {
         const container = document.getElementById('toast-container');
         const el = document.createElement('div');
-        
-        let borderClass = 'border-zinc-800 bg-zinc-900 text-zinc-200';
-        let iconName = 'info';
-
-        if (type === 'success') {
-          borderClass = 'border-emerald-800/80 bg-zinc-900 text-zinc-100';
-          iconName = 'check-circle';
-        } else if (type === 'error') {
-          borderClass = 'border-red-900/80 bg-zinc-900 text-zinc-100';
-          iconName = 'alert-triangle';
-        }
-
-        el.className = `toast max-w-sm w-full rounded-md border p-3 shadow-lg flex items-start gap-2.5 text-xs ${borderClass}`;
+        el.className = `toast max-w-sm w-full rounded-xl border p-3.5 shadow-2xl flex items-start gap-3 text-xs ${
+          isError ? 'border-red-900/80 bg-zinc-900 text-zinc-100' : 'border-zinc-800 bg-zinc-900 text-zinc-200'
+        }`;
         el.innerHTML = `
-          <i data-lucide="${iconName}" class="w-4 h-4 shrink-0 mt-0.5"></i>
-          <div class="space-y-0.5 flex-1">
+          <i data-lucide="${isError ? 'alert-circle' : 'check-circle'}" class="w-4 h-4 shrink-0 mt-0.5 text-zinc-400"></i>
+          <div class="flex-1 space-y-0.5">
             <div class="font-medium text-zinc-200">${title}</div>
-            ${description ? `<div class="text-[11px] text-zinc-400">${description}</div>` : ''}
+            ${desc ? `<div class="text-[11px] text-zinc-400">${desc}</div>` : ''}
           </div>
         `;
-        
         container.appendChild(el);
         lucide.createIcons({ root: el });
-
         setTimeout(() => el.classList.add('show'), 10);
         setTimeout(() => {
           el.classList.remove('show');
           setTimeout(() => el.remove(), 200);
-        }, 3500);
+        }, 3200);
       },
-      success(title, desc) { this.show(title, desc, 'success'); },
-      error(title, desc) { this.show(title, desc, 'error'); },
-      info(title, desc) { this.show(title, desc, 'info'); }
+      success(title, desc) { this.show(title, desc, false); },
+      error(title, desc) { this.show(title, desc, true); }
     };
 
-    let airports = [];
+    let airportCatalog = [];
+    let airportMap = {};
 
-    // Carregamento de Aeroportos com Estado Inicial Disabled
-    async function initAirports() {
-      const originSelect = document.getElementById('originSelect');
-      const destSelect = document.getElementById('destSelect');
-      const submitBtn = document.getElementById('submitBtn');
-      const swapBtn = document.getElementById('swapBtn');
-
+    // 1. Carrega todos os 3.224 aeroportos em memória
+    async function bootstrap() {
       try {
         const res = await fetch('/airports');
-        if (!res.ok) throw new Error('Não foi possível obter a lista de aeroportos.');
+        if (!res.ok) throw new Error('Falha ao conectar com o catálogo de voos.');
+        airportCatalog = await res.json();
         
-        airports = await res.json();
-
-        originSelect.innerHTML = '<option value="" disabled selected>Selecione a origem...</option>';
-        destSelect.innerHTML = '<option value="" disabled selected>Selecione o destino...</option>';
-
-        // Agrupa aeroportos por país (optgroup)
-        const grouped = {};
-        airports.forEach(a => {
-          if (!grouped[a.country]) grouped[a.country] = [];
-          grouped[a.country].push(a);
+        airportCatalog.forEach(a => {
+          airportMap[a.iata] = a;
         });
 
-        const countries = Object.keys(grouped).sort((a, b) => {
-          if (a === "Brazil") return -1;
-          if (b === "Brazil") return 1;
-          return a.localeCompare(b);
-        });
+        document.getElementById('globalStats').textContent = `${airportCatalog.length.toLocaleString('pt-BR')} AEROPORTOS / 36.826 ROTAS`;
 
-        countries.forEach(country => {
-          const g1 = document.createElement("optgroup");
-          g1.label = country;
-          const g2 = document.createElement("optgroup");
-          g2.label = country;
-
-          grouped[country].sort((x, y) => x.city.localeCompare(y.city)).forEach(a => {
-            const opt1 = new Option(a.iata + " — " + a.city, a.iata);
-            const opt2 = new Option(a.iata + " — " + a.city, a.iata);
-            g1.appendChild(opt1);
-            g2.appendChild(opt2);
-          });
-
-          originSelect.appendChild(g1);
-          destSelect.appendChild(g2);
-        });
-
-        // Valores default pré-selecionados
-        originSelect.value = 'GRU';
-        destSelect.value = 'LHR';
-
-        // Ativa controles (Remove Disabled)
-        originSelect.disabled = false;
-        destSelect.disabled = false;
-        submitBtn.disabled = false;
-        swapBtn.disabled = false;
-
-        toast.info('Malha Carregada', `${airports.length} aeroportos disponíveis no grafo.`);
+        // Configura inputs iniciais
+        setAirport('origin', 'GRU');
+        setAirport('dest', 'NRT');
 
       } catch (err) {
-        toast.error('Erro de Conexão', err.message);
+        toast.error('Erro de Inicialização', err.message);
       }
     }
 
-    // Inversão rápida
-    document.getElementById('swapBtn').addEventListener('click', () => {
-      const o = document.getElementById('originSelect');
-      const d = document.getElementById('destSelect');
-      const tmp = o.value;
-      o.value = d.value;
-      d.value = tmp;
-      toast.info('Aeroportos Invertidos', `${o.value} ➔ ${d.value}`);
-    });
+    function setAirport(type, code) {
+      const a = airportMap[code];
+      if (!a) return;
+      document.getElementById(`${type}Code`).value = a.iata;
+      document.getElementById(`${type}Input`).value = `${a.city} (${a.iata}), ${a.country}`;
+      document.getElementById(`${type}IataTag`).textContent = a.iata;
+    }
 
-    // Submissão do Formulário
-    document.getElementById('routeForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+    // 2. Sistema de Autocomplete Ultrarrápido em Memória
+    function setupAutocomplete(type) {
+      const input = document.getElementById(`${type}Input`);
+      const results = document.getElementById(`${type}Results`);
 
-      const origin = document.getElementById('originSelect').value;
-      const destination = document.getElementById('destSelect').value;
-      const criteria = document.querySelector('input[name="criteria"]:checked').value;
-      const submitBtn = document.getElementById('submitBtn');
-      const btnText = document.getElementById('btnText');
-
-      if (!origin || !destination) {
-        toast.error('Campos Obrigatórios', 'Selecione origem e destino para prosseguir.');
-        return;
-      }
-
-      // Alterna estados visíveis
-      const emptyState = document.getElementById('emptyState');
-      const loadingState = document.getElementById('loadingState');
-      const errorState = document.getElementById('errorState');
-      const resultCard = document.getElementById('resultCard');
-
-      emptyState.classList.add('hidden');
-      errorState.classList.add('hidden');
-      resultCard.classList.add('hidden');
-      loadingState.classList.remove('hidden');
-
-      // Estado Disabled e Spinner no botão
-      submitBtn.disabled = true;
-      btnText.textContent = 'Calculando...';
-
-      try {
-        const res = await fetch(`/search?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&criteria=${encodeURIComponent(criteria)}`);
-        const data = await res.json();
-
-        loadingState.classList.add('hidden');
-        submitBtn.disabled = false;
-        btnText.textContent = 'Calcular Rota';
-
-        if (!res.ok) {
-          const msg = data.detail || 'Ocorreu um erro ao calcular a rota.';
-          document.getElementById('errorMessage').textContent = msg;
-          errorState.classList.remove('hidden');
-          toast.error('Rota não encontrada', msg);
-          lucide.createIcons({ root: errorState });
+      input.addEventListener('input', () => {
+        const term = input.value.trim().toLowerCase();
+        if (term.length < 2) {
+          results.classList.add('hidden');
           return;
         }
 
-        // Preenche sumário
-        document.getElementById('resOriginCode').textContent = data.origin;
-        document.getElementById('resDestCode').textContent = data.destination;
-        document.getElementById('resTotalPrice').textContent = `$${data.total_price.toLocaleString('en-US')}`;
-        document.getElementById('resTotalDuration').textContent = `${data.total_duration}h`;
-        document.getElementById('resStops').textContent = data.stops === 0 ? 'Direto' : `${data.stops} escala(s)`;
-        document.getElementById('resCriteriaBadge').textContent = criteria === 'price' ? 'Critério: Menor Custo' : 'Critério: Menor Tempo';
+        // Filtra por IATA, Cidade ou País
+        const matches = airportCatalog.filter(a => 
+          a.iata.toLowerCase().includes(term) ||
+          a.city.toLowerCase().includes(term) ||
+          a.country.toLowerCase().includes(term)
+        ).slice(0, 15); // Top 15 para fluidez visual
 
-        // Nós do Grafo
-        const nodesContainer = document.getElementById('routePathNodes');
-        nodesContainer.innerHTML = '';
+        results.innerHTML = '';
+        if (matches.length === 0) {
+          results.innerHTML = '<li class="px-4 py-2.5 text-zinc-500 text-[11px]">Nenhum aeroporto encontrado</li>';
+        } else {
+          matches.forEach(m => {
+            const li = document.createElement('li');
+            li.className = 'px-4 py-2.5 hover:bg-zinc-800 cursor-pointer flex items-center justify-between transition-colors duration-100';
+            li.innerHTML = `
+              <div>
+                <span class="font-medium text-zinc-200">${m.city}</span>
+                <span class="text-zinc-500 text-[11px] ml-1.5">${m.country}</span>
+              </div>
+              <span class="font-mono font-bold text-xs text-zinc-400 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">${m.iata}</span>
+            `;
+            li.addEventListener('click', () => {
+              setAirport(type, m.iata);
+              results.classList.add('hidden');
+            });
+            results.appendChild(li);
+          });
+        }
+        results.classList.remove('hidden');
+      });
+
+      // Fecha lista ao clicar fora
+      document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !results.contains(e.target)) {
+          results.classList.add('hidden');
+        }
+      });
+    }
+
+    setupAutocomplete('origin');
+    setupAutocomplete('dest');
+
+    // 3. Inversão Rápida
+    document.getElementById('swapBtn').addEventListener('click', () => {
+      const oCode = document.getElementById('originCode').value;
+      const dCode = document.getElementById('destCode').value;
+      setAirport('origin', dCode);
+      setAirport('dest', oCode);
+      toast.success('Inversão Efetuada', `${dCode} ➔ ${oCode}`);
+    });
+
+    // 4. Submissão e Cálculo de Dijkstra
+    document.getElementById('flightForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const origin = document.getElementById('originCode').value;
+      const destination = document.getElementById('destCode').value;
+      const criteria = document.querySelector('input[name="criteria"]:checked').value;
+
+      if (!origin || !destination) {
+        toast.error('Campos Inválidos', 'Defina aeroportos válidos.');
+        return;
+      }
+
+      const sInitial = document.getElementById('stateInitial');
+      const sLoading = document.getElementById('stateLoading');
+      const sError = document.getElementById('stateError');
+      const sSuccess = document.getElementById('stateSuccess');
+      const btn = document.getElementById('calculateBtn');
+      const btnLabel = document.getElementById('btnLabel');
+
+      sInitial.classList.add('hidden');
+      sError.classList.add('hidden');
+      sSuccess.classList.add('hidden');
+      sLoading.classList.remove('hidden');
+
+      btn.disabled = true;
+      btnLabel.textContent = 'Processando Grafos...';
+
+      try {
+        const res = await fetch(`/search?origin=${origin}&destination=${destination}&criteria=${criteria}`);
+        const data = await res.json();
+
+        sLoading.classList.add('hidden');
+        btn.disabled = false;
+        btnLabel.textContent = 'Traçar Rota no Grafo';
+
+        if (!res.ok) {
+          document.getElementById('errorMessage').textContent = data.detail || 'Não foi possível encontrar uma rota disponível.';
+          sError.classList.remove('hidden');
+          toast.error('Rota Inacessível', data.detail);
+          return;
+        }
+
+        // Renderiza Resultados de Sucesso
+        document.getElementById('outOriginIATA').textContent = data.origin;
+        document.getElementById('outDestIATA').textContent = data.destination;
+        document.getElementById('outPrice').textContent = `$${data.total_price.toLocaleString('en-US')} USD`;
+        document.getElementById('outDuration').textContent = `${data.total_duration}h`;
+        document.getElementById('outStops').textContent = data.stops === 0 ? 'Voo Direto' : `${data.stops} escala(s)`;
+        document.getElementById('routeBadge').textContent = criteria === 'price' ? 'CRITÉRIO: MENOR CUSTO TARIFA' : 'CRITÉRIO: MENOR TEMPO TOTAL';
+
+        // Linha do tempo dos nós
+        const timeline = document.getElementById('pathTimeline');
+        timeline.innerHTML = '';
         data.path.forEach((code, idx) => {
-          const badge = document.createElement('span');
-          badge.className = 'inline-flex items-center px-2.5 py-1 rounded bg-zinc-800 border border-zinc-700 font-mono text-xs font-semibold text-zinc-100';
-          badge.textContent = code;
-          nodesContainer.appendChild(badge);
+          const airport = airportMap[code] || { city: code, country: '' };
+          const node = document.createElement('div');
+          node.className = 'flex items-center gap-2 p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs';
+          node.innerHTML = `
+            <span class="font-mono font-bold text-white">${code}</span>
+            <span class="text-[11px] text-zinc-500">${airport.city}</span>
+          `;
+          timeline.appendChild(node);
 
           if (idx < data.path.length - 1) {
-            const arrow = document.createElement('span');
-            arrow.className = 'text-zinc-600 text-xs font-mono';
-            arrow.textContent = '→';
-            nodesContainer.appendChild(arrow);
+            const sep = document.createElement('span');
+            sep.className = 'text-zinc-600 font-mono text-xs';
+            sep.textContent = '➔';
+            timeline.appendChild(sep);
           }
         });
 
-        // Lista de Segmentos
-        const segmentsContainer = document.getElementById('segmentsList');
-        segmentsContainer.innerHTML = '';
-        document.getElementById('segmentsCount').textContent = `${data.segments.length} trecho(s)`;
+        // Lista de Trechos
+        const list = document.getElementById('segmentsList');
+        list.innerHTML = '';
+        document.getElementById('segmentsSummary').textContent = `${data.segments.length} voo(s) comercial(is)`;
 
         if (data.segments.length === 0) {
-          segmentsContainer.innerHTML = `
-            <div class="p-3 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-400">
-              Origem e destino são equivalentes (${data.origin}). Nenhuma conexão requerida.
-            </div>
-          `;
+          list.innerHTML = '<div class="text-xs text-zinc-500 p-4 bg-zinc-900 rounded-xl">Mesmo aeroporto de origem e destino.</div>';
         } else {
           data.segments.forEach((seg, i) => {
+            const srcA = airportMap[seg.from_airport] || { city: seg.from_airport, country: '' };
+            const dstA = airportMap[seg.to_airport] || { city: seg.to_airport, country: '' };
+
             const item = document.createElement('div');
-            item.className = 'flex items-center justify-between p-3 rounded-md bg-zinc-950 border border-zinc-800/80 text-xs transition-colors duration-150 hover:bg-zinc-900';
+            item.className = 'p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-950 flex flex-wrap items-center justify-between gap-3 text-xs';
             item.innerHTML = `
               <div class="flex items-center gap-3">
-                <span class="w-5 h-5 rounded bg-zinc-800 text-zinc-300 flex items-center justify-center font-mono text-[10px] font-medium">${i + 1}</span>
-                <span class="font-mono font-medium text-zinc-100">${seg.from_airport} → ${seg.to_airport}</span>
+                <span class="w-6 h-6 rounded-md bg-zinc-900 border border-zinc-800 font-mono text-zinc-400 flex items-center justify-center text-[10px] font-bold">${i + 1}</span>
+                <div>
+                  <div class="font-semibold text-zinc-200">
+                    ${srcA.city} (${seg.from_airport}) ➔ ${dstA.city} (${seg.to_airport})
+                  </div>
+                  <div class="text-[11px] text-zinc-500">Trecho Comercial Internacional / Doméstico</div>
+                </div>
               </div>
-              <div class="flex items-center gap-4 font-mono text-zinc-300">
-                <span class="font-medium text-zinc-200">$${seg.price}</span>
-                <span class="text-zinc-500">•</span>
-                <span class="text-zinc-400">${seg.duration}h</span>
+
+              <div class="flex items-center gap-4 font-mono">
+                <div class="text-right">
+                  <span class="text-zinc-200 font-bold">$${seg.price} USD</span>
+                  <span class="text-zinc-600 text-[11px] ml-1.5">• ${seg.duration}h voo</span>
+                </div>
               </div>
             `;
-            segmentsContainer.appendChild(item);
+            list.appendChild(item);
           });
         }
 
-        resultCard.classList.remove('hidden');
-        lucide.createIcons({ root: resultCard });
-        toast.success('Rota Calculada', `${data.path.join(' → ')} (${data.total_duration}h, $${data.total_price})`);
+        sSuccess.classList.remove('hidden');
+        toast.success('Trajetória Encontrada', `${data.origin} ➔ ${data.destination} em ${data.total_duration}h.`);
 
       } catch (err) {
-        loadingState.classList.add('hidden');
-        submitBtn.disabled = false;
-        btnText.textContent = 'Calcular Rota';
-        document.getElementById('errorMessage').textContent = 'Falha de comunicação com a API.';
-        errorState.classList.remove('hidden');
-        toast.error('Erro de Rede', 'Não foi possível conectar ao servidor.');
-        lucide.createIcons({ root: errorState });
+        sLoading.classList.add('hidden');
+        btn.disabled = false;
+        btnLabel.textContent = 'Traçar Rota no Grafo';
+        document.getElementById('errorMessage').textContent = 'Erro de comunicação ao calcular a rota.';
+        sError.classList.remove('hidden');
+        toast.error('Erro de Rede', err.message);
       }
     });
 
-    // Inicia ícones e aeroportos
+    bootstrap();
     lucide.createIcons();
-    initAirports();
   </script>
 </body>
 </html>
