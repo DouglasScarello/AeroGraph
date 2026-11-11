@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal, Optional
+from typing import List, Optional
 
 class AirportSchema(BaseModel):
     iata: str = Field(..., description="Código IATA de 3 letras do aeroporto", example="GRU")
@@ -19,8 +19,8 @@ class SegmentSchema(BaseModel):
     to_lon: float = Field(0.0, example=-80.2870)
 
 class RouteOption(BaseModel):
-    rank: int = Field(..., description="Posição no ranking (1 = melhor, 2 = alternativa, 3 = alternativa)", example=1)
-    label: str = Field(..., description="Rótulo da rota", example="Opção Principal")
+    rank: int = Field(..., description="Posição no ranking", example=1)
+    label: str = Field(..., description="Rótulo da rota", example="Mais Econômica")
     badge: Optional[str] = Field("Opção", description="Selo inteligente", example="💰 Mais Barata")
     path: List[str] = Field(..., description="Sequência ordenada de aeroportos", example=["GRU", "LHR"])
     segments: List[SegmentSchema] = Field(..., description="Detalhamento individual de cada voo")
@@ -31,7 +31,7 @@ class RouteOption(BaseModel):
 class MultiRouteResponse(BaseModel):
     origin: str = Field(..., example="GRU")
     destination: str = Field(..., example="LHR")
-    criteria: Optional[str] = "smart" = Field("price", description="Critério de otimização selecionado")
+    criteria: Optional[str] = Field("smart", description="Critério de otimização selecionado")
     total_found: int = Field(..., description="Quantidade de alternativas calculadas", example=3)
     routes: List[RouteOption] = Field(..., description="As rotas ordenadas pelo critério")
 
