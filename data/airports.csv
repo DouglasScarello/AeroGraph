@@ -1,11 +1,41 @@
 IATA,City,Country
 GRU,Sao Paulo,Brazil
+GIG,Rio de Janeiro,Brazil
+BSB,Brasilia,Brazil
+CNF,Belo Horizonte,Brazil
+SSA,Salvador,Brazil
+REC,Recife,Brazil
+POA,Porto Alegre,Brazil
+FOR,Fortaleza,Brazil
+CWB,Curitiba,Brazil
+FLN,Florianopolis,Brazil
 JFK,New York,USA
+MIA,Miami,USA
+LAX,Los Angeles,USA
+ORD,Chicago,USA
+ATL,Atlanta,USA
+SFO,San Francisco,USA
 LHR,London,UK
-SYD,Sydney,Australia
 CDG,Paris,France
 FRA,Frankfurt,Germany
+MAD,Madrid,Spain
+LIS,Lisbon,Portugal
+AMS,Amsterdam,Netherlands
+FCO,Rome,Italy
 DXB,Dubai,UAE
+DOH,Doha,Qatar
+HND,Tokyo,Japan
 NRT,Tokyo,Japan
+SIN,Singapore,Singapore
+ICN,Seoul,South Korea
+SYD,Sydney,Australia
+MEL,Melbourne,Australia
 EZE,Buenos Aires,Argentina
-MIA,Miami,USA
+SCL,Santiago,Chile
+BOG,Bogota,Colombia
+LIM,Lima,Peru
+PTY,Panama City,Panama
+MEX,Mexico City,Mexico
+YYZ,Toronto,Canada
+YVR,Vancouver,Canada
+JNB,Johannesburg,South Africa

@@ -354,11 +354,34 @@
         originSelect.innerHTML = '<option value="" disabled selected>Selecione a origem...</option>';
         destSelect.innerHTML = '<option value="" disabled selected>Selecione o destino...</option>';
 
+        // Agrupa aeroportos por país (optgroup)
+        const grouped = {};
         airports.forEach(a => {
-          const opt1 = new Option(`${a.iata} — ${a.city}, ${a.country}`, a.iata);
-          const opt2 = new Option(`${a.iata} — ${a.city}, ${a.country}`, a.iata);
-          originSelect.add(opt1);
-          destSelect.add(opt2);
+          if (!grouped[a.country]) grouped[a.country] = [];
+          grouped[a.country].push(a);
+        });
+
+        const countries = Object.keys(grouped).sort((a, b) => {
+          if (a === "Brazil") return -1;
+          if (b === "Brazil") return 1;
+          return a.localeCompare(b);
+        });
+
+        countries.forEach(country => {
+          const g1 = document.createElement("optgroup");
+          g1.label = country;
+          const g2 = document.createElement("optgroup");
+          g2.label = country;
+
+          grouped[country].sort((x, y) => x.city.localeCompare(y.city)).forEach(a => {
+            const opt1 = new Option(a.iata + " — " + a.city, a.iata);
+            const opt2 = new Option(a.iata + " — " + a.city, a.iata);
+            g1.appendChild(opt1);
+            g2.appendChild(opt2);
+          });
+
+          originSelect.appendChild(g1);
+          destSelect.appendChild(g2);
         });
 
         // Valores default pré-selecionados
