@@ -4,19 +4,25 @@ from typing import Dict, Any, Optional
 
 def build_graph(airports_file: str, flights_file: str) -> nx.DiGraph:
     """
-    Carrega aeroportos e voos dos arquivos CSV e constrói um grafo direcionado ponderado.
+    Carrega aeroportos e voos dos arquivos CSV e constrói um grafo direcionado ponderado com coordenadas.
     """
     airports = pd.read_csv(airports_file)
     flights = pd.read_csv(flights_file)
     
     G = nx.DiGraph()
     
-    # Adiciona nós (aeroportos)
+    # Adiciona nós (aeroportos com coordenadas geográficas)
+    has_lat = 'Lat' in airports.columns and 'Lon' in airports.columns
     for _, row in airports.iterrows():
+        iata = str(row['IATA']).strip().upper()
+        lat = float(row['Lat']) if has_lat and pd.notnull(row['Lat']) else 0.0
+        lon = float(row['Lon']) if has_lat and pd.notnull(row['Lon']) else 0.0
         G.add_node(
-            str(row['IATA']).strip().upper(),
+            iata,
             city=str(row['City']).strip(),
-            country=str(row['Country']).strip()
+            country=str(row['Country']).strip(),
+            lat=lat,
+            lon=lon
         )
     
     # Adiciona arestas (voos direcionados)
@@ -32,7 +38,7 @@ def build_graph(airports_file: str, flights_file: str) -> nx.DiGraph:
 
 def get_airport_info(G: nx.DiGraph, iata: str) -> Optional[Dict[str, Any]]:
     """
-    Retorna os metadados de um aeroporto presente no grafo.
+    Retorna os metadados de um aeroporto presente no grafo incluindo coordenadas.
     """
     iata = iata.upper()
     if iata in G.nodes:
@@ -40,6 +46,8 @@ def get_airport_info(G: nx.DiGraph, iata: str) -> Optional[Dict[str, Any]]:
         return {
             "iata": iata,
             "city": data.get("city", ""),
-            "country": data.get("country", "")
+            "country": data.get("country", ""),
+            "lat": data.get("lat", 0.0),
+            "lon": data.get("lon", 0.0)
         }
     return None

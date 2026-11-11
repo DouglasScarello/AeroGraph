@@ -6,14 +6,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from core.graph import build_graph, get_airport_info
-from core.dijkstra import find_best_route
+from core.dijkstra import find_best_routes
 from core.exceptions import AirportNotFoundError, NoRouteFoundError
-from backend.schemas import AirportSchema, RouteResponse, ErrorResponse
+from backend.schemas import AirportSchema, MultiRouteResponse, ErrorResponse
 
 app = FastAPI(
     title="AirCrazyScarello API",
-    description="API de alta performance para roteamento inteligente de voos com Algoritmo de Dijkstra e Grafos Direcionados.",
-    version="1.0.0"
+    description="API de alta performance para roteamento de voos mundiais com K-Shortest Paths (Algoritmo de Yen) e Dijkstra.",
+    version="2.0.0"
 )
 
 # CORS Middleware
@@ -38,7 +38,7 @@ G = build_graph(AIRPORTS_FILE, FLIGHTS_FILE)
 @app.get(
     "/",
     summary="Interface Web do Usuário",
-    description="Retorna a aplicação web visual e amigável para o usuário final."
+    description="Retorna a aplicação web visual e amigável para o usuário final com mapa interativo."
 )
 def serve_ui():
     index_file = os.path.join(FRONTEND_DIR, "index.html")
@@ -60,10 +60,9 @@ def serve_ui():
 def api_status():
     return {
         "status": "online",
-        "message": "Welcome to AirCrazyScarello Route Engine",
+        "message": "AirCrazyScarello K-Shortest Engine Online",
         "total_airports": len(G.nodes),
-        "total_flights": len(G.edges),
-        "available_airports": sorted(list(G.nodes))
+        "total_flights": len(G.edges)
     }
 
 
@@ -71,7 +70,7 @@ def api_status():
     "/airports",
     response_model=List[AirportSchema],
     summary="Listar aeroportos",
-    description="Retorna a lista completa de todos os aeroportos cadastrados na malha aérea."
+    description="Retorna a lista completa de todos os aeroportos cadastrados com coordenadas geográficas."
 )
 def list_airports():
     airports = []
@@ -87,7 +86,7 @@ def list_airports():
     response_model=AirportSchema,
     responses={404: {"model": ErrorResponse}},
     summary="Consultar aeroporto específico",
-    description="Busca os detalhes de um aeroporto a partir do seu código IATA."
+    description="Busca os detalhes e coordenadas de um aeroporto a partir do seu código IATA."
 )
 def get_airport(iata: str):
     code = iata.strip().upper()
@@ -102,22 +101,23 @@ def get_airport(iata: str):
 
 @app.get(
     "/search",
-    response_model=RouteResponse,
+    response_model=MultiRouteResponse,
     responses={
         404: {"model": ErrorResponse},
         400: {"model": ErrorResponse}
     },
-    summary="Calcular melhor rota de voo",
-    description="Calcula a rota ótima entre origem e destino utilizando o algoritmo de Dijkstra com critério por menor preço ou menor tempo de voo."
+    summary="Calcular Top K Melhores Rotas",
+    description="Calcula as melhores rotas alternativas utilizando o Algoritmo de Yen e Dijkstra, ordenadas por preço ou duração."
 )
 def search_route(
     origin: str = Query(..., description="Código IATA de origem (ex: GRU)", min_length=3, max_length=3),
     destination: str = Query(..., description="Código IATA de destino (ex: LHR)", min_length=3, max_length=3),
-    criteria: Literal["price", "duration"] = Query("price", description="Critério de otimização: 'price' para menor custo ou 'duration' para menor tempo")
+    criteria: Literal["price", "duration"] = Query("price", description="Critério de otimização: 'price' para menor custo ou 'duration' para menor tempo"),
+    k: int = Query(3, description="Quantidade de rotas alternativas a retornar (1 a 5)", ge=1, le=5)
 ):
     try:
-        route = find_best_route(G, origin, destination, criteria=criteria)
-        return route
+        routes_data = find_best_routes(G, origin, destination, criteria=criteria, k=k)
+        return routes_data
     except AirportNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,5 +131,5 @@ def search_route(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno no cálculo da rota: {str(e)}"
+            detail=f"Erro interno no cálculo das rotas: {str(e)}"
         )

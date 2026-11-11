@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AirCrazyScarello — Global Flight Navigation Engine</title>
+  <title>AirCrazyScarello — Global Flight Navigation & Interactive Radar</title>
   
   <!-- Tipografia Editorial: Syne + Inter + JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   
-  <!-- Tailwind CSS CDN -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -26,43 +26,55 @@
     }
   </script>
 
+  <!-- Leaflet CSS & JS (Mapa Interativo da Terra) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Leaflet Curve / Geodesic support -->
+  <script src="https://unpkg.com/leaflet-curve@1.0.0/leaflet.curve.js"></script>
+
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* Radar Grid & Cartographic Canvas */
     body {
-      background-color: #090a0f;
+      background-color: #08090d;
       background-image: 
-        radial-gradient(ellipse 90% 40% at 50% -10%, rgba(24, 45, 65, 0.45), transparent 70%),
-        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        radial-gradient(ellipse 90% 40% at 50% -10%, rgba(20, 35, 55, 0.4), transparent 70%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
       background-size: 100% 100%, 48px 48px, 48px 48px;
     }
 
-    /* Traçado e conexões elegantes */
-    .flight-dash {
-      background-image: linear-gradient(to right, #52525b 50%, transparent 50%);
-      background-size: 8px 1px;
-      background-repeat: repeat-x;
+    /* Estilização Dark Map Leaflet */
+    #map {
+      height: 380px;
+      width: 100%;
+      background: #090a0f;
+      border-radius: 12px;
+      z-index: 10;
+    }
+    .leaflet-container {
+      background-color: #090a0f !important;
+    }
+    .leaflet-tile {
+      filter: brightness(0.7) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3);
+    }
+    .leaflet-bar a {
+      background-color: #18181b !important;
+      color: #a1a1aa !important;
+      border-color: #27272a !important;
     }
 
-    /* Autocomplete dropdown list styling */
+    /* Autocomplete */
     .autocomplete-list {
       max-height: 240px;
       overflow-y: auto;
       scrollbar-width: thin;
       scrollbar-color: #27272a #090a0f;
     }
-    .autocomplete-list::-webkit-scrollbar {
-      width: 4px;
-    }
-    .autocomplete-list::-webkit-scrollbar-thumb {
-      background: #27272a;
-      border-radius: 4px;
-    }
 
-    /* Sonner Toast */
+    /* Toasts */
     #toast-container {
       position: fixed;
       bottom: 24px;
@@ -87,10 +99,9 @@
 </head>
 <body class="min-h-full flex flex-col font-sans text-zinc-300 antialiased selection:bg-zinc-800 selection:text-zinc-100">
 
-  <!-- Toast Container -->
   <div id="toast-container" aria-live="polite"></div>
 
-  <!-- Barra de Topo Minimalista & Aeronáutica -->
+  <!-- Header -->
   <header class="border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md sticky top-0 z-40">
     <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -99,12 +110,12 @@
           AirCrazy<span class="text-zinc-500">.</span>Scarello
         </span>
         <span class="text-zinc-600 text-xs">•</span>
-        <span class="text-[11px] font-mono text-zinc-400">Global Dijkstra Flight Engine</span>
+        <span class="text-[11px] font-mono text-zinc-400">Global Yen K-Shortest Radar</span>
       </div>
 
       <div class="flex items-center gap-4 text-xs font-mono">
         <div class="hidden sm:flex items-center gap-2 text-zinc-500">
-          <span>MALHA MUNDIAL:</span>
+          <span>MALHA COMERCIAL:</span>
           <span class="text-zinc-300 font-semibold" id="globalStats">3.224 AEROPORTOS / 36.826 ROTAS</span>
         </div>
         <a href="/docs" target="_blank" class="px-2.5 py-1 rounded border border-zinc-800 hover:border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 transition-colors duration-150">
@@ -114,37 +125,37 @@
     </div>
   </header>
 
-  <!-- Hero & Console Unificado (Sem cara de blocos soltos) -->
-  <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-10 flex flex-col">
+  <!-- Main Terminal -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-8 flex flex-col space-y-6">
     
-    <!-- Hero Editorial de Abertura -->
-    <div class="mb-8">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400 mb-4">
-        <span>RADAR DE MALHA COMERCIAL</span>
+    <!-- Hero Header -->
+    <div>
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400 mb-3">
+        <span>K-SHORTEST PATHS</span>
         <span class="text-zinc-600">/</span>
-        <span class="text-emerald-400">OPENFLIGHTS VERIFIED</span>
+        <span class="text-emerald-400">TOP 3 ALTERNATIVAS & ARCOS NO MAPA</span>
       </div>
-      <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-zinc-100 max-w-3xl leading-tight">
-        Navegação global e cálculo de menores caminhos na aviação.
+      <h1 class="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-100 max-w-3xl leading-tight">
+        Navegação global e radar geodésico de rotas aéreas.
       </h1>
-      <p class="text-sm text-zinc-400 mt-3 max-w-2xl leading-relaxed">
-        Pesquise entre milhares de aeroportos comerciais do planeta. A engine analisa conexões em grafos e processa tarifas e durações reais via Dijkstra.
+      <p class="text-xs sm:text-sm text-zinc-400 mt-2 max-w-2xl leading-relaxed">
+        O motor calcula não apenas a melhor rota, mas também as 3 alternativas mais eficientes do planeta traçadas diretamente no mapa geográfico.
       </p>
     </div>
 
-    <!-- O CONSOLE DE ROTA: Interface Única e Contínua (Estilo Flight Booking Terminal) -->
+    <!-- O Console Terminal -->
     <div class="rounded-2xl border border-zinc-800 bg-zinc-950/80 backdrop-blur-xl shadow-2xl p-6 sm:p-8 space-y-6">
       
-      <!-- Linha Unificada de Busca (Origem, Swap, Destino, Critério, Botão) -->
+      <!-- Formulário de Busca -->
       <form id="flightForm" class="space-y-6" novalidate>
         
         <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
           
-          <!-- Campo Origem com Autocomplete Instantâneo -->
+          <!-- Origem -->
           <div class="md:col-span-5 relative" id="originContainer">
             <label class="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
               <span>Origem (Partida)</span>
-              <span id="originIataTag" class="text-zinc-500 font-bold">GRU</span>
+              <span id="originIataTag" class="text-zinc-500 font-bold">FLN</span>
             </label>
             <div class="relative">
               <input 
@@ -155,14 +166,13 @@
                 required
                 class="w-full h-12 bg-zinc-900/90 border border-zinc-800 rounded-xl px-4 text-sm text-zinc-100 font-medium placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors duration-150"
               />
-              <input type="hidden" id="originCode" value="GRU">
+              <input type="hidden" id="originCode" value="FLN">
               <i data-lucide="plane-takeoff" class="w-4 h-4 text-zinc-500 absolute right-4 top-4 pointer-events-none"></i>
             </div>
-            <!-- Lista Flutuante de Autocomplete -->
             <ul id="originResults" class="autocomplete-list hidden absolute left-0 right-0 top-full mt-1.5 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 py-1.5 text-xs divide-y divide-zinc-800/40"></ul>
           </div>
 
-          <!-- Botão Inverter Centralizado -->
+          <!-- Swap -->
           <div class="md:col-span-2 flex justify-center pt-5 md:pt-4">
             <button 
               type="button" 
@@ -174,7 +184,7 @@
             </button>
           </div>
 
-          <!-- Campo Destino com Autocomplete Instantâneo -->
+          <!-- Destino -->
           <div class="md:col-span-5 relative" id="destContainer">
             <label class="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
               <span>Destino (Chegada)</span>
@@ -192,62 +202,68 @@
               <input type="hidden" id="destCode" value="NRT">
               <i data-lucide="plane-landing" class="w-4 h-4 text-zinc-500 absolute right-4 top-4 pointer-events-none"></i>
             </div>
-            <!-- Lista Flutuante de Autocomplete -->
             <ul id="destResults" class="autocomplete-list hidden absolute left-0 right-0 top-full mt-1.5 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 py-1.5 text-xs divide-y divide-zinc-800/40"></ul>
           </div>
 
         </div>
 
-        <!-- Seletor de Critério e Botão de Disparo em Linha -->
+        <!-- Critério & Botão -->
         <div class="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-900">
           
           <div class="flex items-center gap-2 bg-zinc-900/60 p-1.5 rounded-xl border border-zinc-800/80">
             <label class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors duration-150 text-zinc-400 has-[:checked]:bg-zinc-800 has-[:checked]:text-zinc-100">
               <input type="radio" name="criteria" value="price" checked class="hidden">
               <i data-lucide="banknote" class="w-3.5 h-3.5"></i>
-              <span>Otimizar por Preço</span>
+              <span>Menor Tarifa ($)</span>
             </label>
 
             <label class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors duration-150 text-zinc-400 has-[:checked]:bg-zinc-800 has-[:checked]:text-zinc-100">
               <input type="radio" name="criteria" value="duration" class="hidden">
               <i data-lucide="clock" class="w-3.5 h-3.5"></i>
-              <span>Mais Rápido (Tempo)</span>
+              <span>Menor Tempo (h)</span>
             </label>
           </div>
 
           <button 
             type="submit" 
             id="calculateBtn"
-            class="w-full sm:w-auto h-11 px-8 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs tracking-wide transition-all duration-150 shadow-md flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+            class="w-full sm:w-auto h-11 px-8 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs tracking-wide transition-all duration-150 shadow-md flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
           >
             <i data-lucide="navigation-2" class="w-4 h-4 text-zinc-950 fill-zinc-950"></i>
-            <span id="btnLabel">Traçar Rota no Grafo</span>
+            <span id="btnLabel">Traçar Top 3 Rotas no Globo</span>
           </button>
 
         </div>
 
       </form>
 
-      <!-- SEÇÃO DE RESULTADOS INTEGRADA (Tudo em uma só experiência visual contínua) -->
-      <div id="resultsZone" class="pt-6 border-t border-zinc-800/60">
+      <!-- SEÇÃO MAPA INTERATIVO + ROTAS -->
+      <div id="resultsZone" class="pt-6 border-t border-zinc-800/60 space-y-6">
         
-        <!-- Estado Inicial Discreto -->
-        <div id="stateInitial" class="py-10 text-center flex flex-col items-center justify-center">
-          <div class="w-12 h-12 rounded-full border border-zinc-800 bg-zinc-900/50 flex items-center justify-center text-zinc-600 mb-3">
-            <i data-lucide="globe" class="w-5 h-5"></i>
+        <!-- O Mapa Mundi da Terra (Visualização de Arcos Geodésicos) -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-xs font-mono">
+            <span class="text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="map" class="w-3.5 h-3.5 text-zinc-400"></i>
+              <span>Radar Geodésico da Trajetória</span>
+            </span>
+            <span id="mapHint" class="text-zinc-500 text-[11px]">Rotas intercontinentais em tempo real</span>
           </div>
-          <p class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Aguardando coordenadas de voo</p>
-          <p class="text-[11px] text-zinc-600 mt-1">Selecione as cidades ou códigos IATA acima para navegar na malha.</p>
+          <div id="map" class="border border-zinc-800/80 shadow-inner"></div>
         </div>
 
-        <!-- Skeleton Loading Pulsante -->
-        <div id="stateLoading" class="hidden py-8 space-y-4 animate-pulse">
+        <!-- Estado Inicial -->
+        <div id="stateInitial" class="py-6 text-center">
+          <p class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Aguardando coordenadas para traçar o mapa</p>
+        </div>
+
+        <!-- Skeleton Loading -->
+        <div id="stateLoading" class="hidden py-6 space-y-4 animate-pulse">
           <div class="h-6 w-48 bg-zinc-800 rounded"></div>
-          <div class="h-20 w-full bg-zinc-900 border border-zinc-800 rounded-xl"></div>
-          <div class="h-24 w-full bg-zinc-900 border border-zinc-800 rounded-xl"></div>
+          <div class="h-16 w-full bg-zinc-900 border border-zinc-800 rounded-xl"></div>
         </div>
 
-        <!-- Alerta de Erro -->
+        <!-- Erro -->
         <div id="stateError" class="hidden p-4 rounded-xl border border-red-900/50 bg-red-950/20 text-xs text-red-300 flex items-start gap-3">
           <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 shrink-0 mt-0.5"></i>
           <div>
@@ -256,62 +272,20 @@
           </div>
         </div>
 
-        <!-- ROTA ENCONTRADA: Apresentação em Fita de Embarque Contínua -->
-        <div id="stateSuccess" class="hidden space-y-6">
+        <!-- CARDS DAS TOP 3 ROTAS (Abas Selecionáveis) -->
+        <div id="stateSuccess" class="hidden space-y-5">
           
-          <!-- Metrô / Fita Contínua do Voo -->
-          <div class="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/40 space-y-6">
+          <div>
+            <span class="text-[11px] font-mono uppercase tracking-wider text-zinc-500 block mb-2.5">
+              Top 3 Melhores Alternativas Calculadas (Algoritmo de Yen)
+            </span>
             
-            <div class="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <span id="routeBadge" class="text-[10px] font-mono uppercase tracking-widest text-zinc-400">
-                  CRITÉRIO: MENOR CUSTO
-                </span>
-                <div class="flex items-center gap-3 mt-1">
-                  <span id="outOriginIATA" class="font-display text-2xl font-bold text-white">GRU</span>
-                  <span class="text-zinc-600 font-mono">────✈────</span>
-                  <span id="outDestIATA" class="font-display text-2xl font-bold text-white">NRT</span>
-                </div>
-              </div>
-
-              <!-- Cartões de Dados Primários -->
-              <div class="flex items-center gap-6 font-mono">
-                <div class="text-right">
-                  <span class="block text-[10px] text-zinc-500 uppercase">Tarifa Total</span>
-                  <span id="outPrice" class="text-xl font-bold text-zinc-100 font-mono">$0 USD</span>
-                </div>
-                <div class="h-8 w-px bg-zinc-800"></div>
-                <div class="text-right">
-                  <span class="block text-[10px] text-zinc-500 uppercase">Tempo no Ar</span>
-                  <span id="outDuration" class="text-xl font-bold text-zinc-100 font-mono">0h</span>
-                </div>
-                <div class="h-8 w-px bg-zinc-800"></div>
-                <div class="text-right">
-                  <span class="block text-[10px] text-zinc-500 uppercase">Conexões</span>
-                  <span id="outStops" class="text-xl font-bold text-zinc-100 font-mono">0</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Traçado Sequencial de Aeroportos -->
-            <div class="pt-2">
-              <span class="block text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-3">
-                Trajetória Calculada no Grafo Mundial
-              </span>
-              <div id="pathTimeline" class="flex flex-wrap items-center gap-3"></div>
-            </div>
-
+            <!-- Abas / Cards das 3 opções -->
+            <div id="routeTabs" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
           </div>
 
-          <!-- Detalhamento Individual de Trechos de Voo -->
-          <div class="space-y-3">
-            <h3 class="text-xs font-mono uppercase tracking-wider text-zinc-400 flex items-center justify-between">
-              <span>Segmentos Operacionais</span>
-              <span id="segmentsSummary" class="text-zinc-500"></span>
-            </h3>
-
-            <div id="segmentsList" class="space-y-2"></div>
-          </div>
+          <!-- Detalhamento da Rota Ativa Selecionada -->
+          <div id="activeRouteDetail" class="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 space-y-4"></div>
 
         </div>
 
@@ -321,9 +295,24 @@
 
   </main>
 
-  <!-- Script da Aplicação: Motor de Autocomplete + Dijkstra Bridge -->
   <script>
-    // Notificações Sonner
+    // Inicialização do Mapa Leaflet Dark
+    const map = L.map('map', {
+      center: [15, 0],
+      zoom: 2,
+      minZoom: 1,
+      maxZoom: 8,
+      zoomControl: true,
+      attributionControl: false
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19
+    }).addTo(map);
+
+    let routeLayersGroup = L.layerGroup().addTo(map);
+
+    // Sistema Toasts Sonner
     const toast = {
       show(title, desc = '', isError = false) {
         const container = document.getElementById('toast-container');
@@ -352,8 +341,9 @@
 
     let airportCatalog = [];
     let airportMap = {};
+    let currentRoutesData = null;
+    let selectedRouteIndex = 0;
 
-    // 1. Carrega todos os 3.224 aeroportos em memória
     async function bootstrap() {
       try {
         const res = await fetch('/airports');
@@ -366,8 +356,7 @@
 
         document.getElementById('globalStats').textContent = `${airportCatalog.length.toLocaleString('pt-BR')} AEROPORTOS / 36.826 ROTAS`;
 
-        // Configura inputs iniciais
-        setAirport('origin', 'GRU');
+        setAirport('origin', 'FLN');
         setAirport('dest', 'NRT');
 
       } catch (err) {
@@ -383,7 +372,6 @@
       document.getElementById(`${type}IataTag`).textContent = a.iata;
     }
 
-    // 2. Sistema de Autocomplete Ultrarrápido em Memória
     function setupAutocomplete(type) {
       const input = document.getElementById(`${type}Input`);
       const results = document.getElementById(`${type}Results`);
@@ -395,12 +383,11 @@
           return;
         }
 
-        // Filtra por IATA, Cidade ou País
         const matches = airportCatalog.filter(a => 
           a.iata.toLowerCase().includes(term) ||
           a.city.toLowerCase().includes(term) ||
           a.country.toLowerCase().includes(term)
-        ).slice(0, 15); // Top 15 para fluidez visual
+        ).slice(0, 15);
 
         results.innerHTML = '';
         if (matches.length === 0) {
@@ -426,7 +413,6 @@
         results.classList.remove('hidden');
       });
 
-      // Fecha lista ao clicar fora
       document.addEventListener('click', (e) => {
         if (!input.contains(e.target) && !results.contains(e.target)) {
           results.classList.add('hidden');
@@ -437,7 +423,6 @@
     setupAutocomplete('origin');
     setupAutocomplete('dest');
 
-    // 3. Inversão Rápida
     document.getElementById('swapBtn').addEventListener('click', () => {
       const oCode = document.getElementById('originCode').value;
       const dCode = document.getElementById('destCode').value;
@@ -446,7 +431,158 @@
       toast.success('Inversão Efetuada', `${dCode} ➔ ${oCode}`);
     });
 
-    // 4. Submissão e Cálculo de Dijkstra
+    // Desenhar Rota no Mapa com Linhas Curvas Geodésicas
+    function drawRouteOnMap(route) {
+      routeLayersGroup.clearLayers();
+      const bounds = L.latLngBounds();
+
+      // Marcadores dos Aeroportos
+      route.path.forEach((code, idx) => {
+        const a = airportMap[code];
+        if (!a || (a.lat === 0 && a.lon === 0)) return;
+
+        bounds.extend([a.lat, a.lon]);
+
+        const isTerminal = idx === 0 || idx === route.path.length - 1;
+        const color = isTerminal ? '#f4f4f5' : '#a1a1aa';
+        const radius = isTerminal ? 6 : 4;
+
+        const marker = L.circleMarker([a.lat, a.lon], {
+          radius: radius,
+          fillColor: color,
+          color: '#090a0f',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 1
+        }).addTo(routeLayersGroup);
+
+        marker.bindPopup(`<strong>${a.iata}</strong> — ${a.city}, ${a.country}`);
+      });
+
+      // Curvas Geodésicas conectando os segmentos
+      route.segments.forEach((seg, i) => {
+        if (seg.from_lat === 0 && seg.from_lon === 0) return;
+        if (seg.to_lat === 0 && seg.to_lon === 0) return;
+
+        // Ponto de controle para arco curvilíneo da Terra
+        const midLat = (seg.from_lat + seg.to_lat) / 2 + (Math.abs(seg.to_lon - seg.from_lon) > 30 ? 10 : 3);
+        const midLon = (seg.from_lon + seg.to_lon) / 2;
+
+        const curve = L.curve(
+          ['M', [seg.from_lat, seg.from_lon], 'Q', [midLat, midLon], [seg.to_lat, seg.to_lon]],
+          {
+            color: '#38bdf8',
+            weight: 2.5,
+            opacity: 0.85,
+            dashArray: '6, 6'
+          }
+        ).addTo(routeLayersGroup);
+      });
+
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [40, 40] });
+      }
+    }
+
+    // Renderizar Abas das Top 3 Rotas
+    function renderRoutesUI(data) {
+      currentRoutesData = data;
+      selectedRouteIndex = 0;
+
+      const tabsContainer = document.getElementById('routeTabs');
+      tabsContainer.innerHTML = '';
+
+      data.routes.forEach((route, idx) => {
+        const isSelected = idx === 0;
+        const btn = document.createElement('div');
+        btn.className = `route-tab p-4 rounded-xl border cursor-pointer transition-all duration-150 ${
+          isSelected 
+            ? 'border-sky-500 bg-sky-950/20 shadow-md ring-1 ring-sky-500/50' 
+            : 'border-zinc-800 bg-zinc-950 hover:bg-zinc-900/60'
+        }`;
+
+        btn.innerHTML = `
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded ${
+              idx === 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-400'
+            }">
+              ${idx === 0 ? '★ Melhor Escolha' : `Opção ${idx + 1}`}
+            </span>
+            <span class="font-mono text-xs font-semibold text-zinc-400">${route.stops === 0 ? 'Direto' : `${route.stops} escala(s)`}</span>
+          </div>
+
+          <div class="flex items-baseline justify-between">
+            <div class="font-mono text-lg font-bold text-white">$${route.total_price.toLocaleString('en-US')}</div>
+            <div class="font-mono text-xs text-zinc-400">${route.total_duration}h voo</div>
+          </div>
+
+          <div class="mt-2 text-[11px] font-mono text-zinc-500 truncate">
+            ${route.path.join(' ➔ ')}
+          </div>
+        `;
+
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.route-tab').forEach((el, i) => {
+            if (i === idx) {
+              el.className = 'route-tab p-4 rounded-xl border cursor-pointer transition-all duration-150 border-sky-500 bg-sky-950/20 shadow-md ring-1 ring-sky-500/50';
+            } else {
+              el.className = 'route-tab p-4 rounded-xl border cursor-pointer transition-all duration-150 border-zinc-800 bg-zinc-950 hover:bg-zinc-900/60';
+            }
+          });
+          selectedRouteIndex = idx;
+          renderActiveDetail(data.routes[idx]);
+          drawRouteOnMap(data.routes[idx]);
+        });
+
+        tabsContainer.appendChild(btn);
+      });
+
+      renderActiveDetail(data.routes[0]);
+      drawRouteOnMap(data.routes[0]);
+    }
+
+    // Renderizar Detalhes dos Trechos da Rota Ativa
+    function renderActiveDetail(route) {
+      const container = document.getElementById('activeRouteDetail');
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800 pb-3">
+          <div>
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Trajeto Selecionado</div>
+            <div class="text-base font-display font-bold text-white mt-0.5">
+              ${route.path.join(' ➔ ')}
+            </div>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-mono">
+            <div><span class="text-zinc-500">CUSTO:</span> <span class="font-bold text-white">$${route.total_price} USD</span></div>
+            <div><span class="text-zinc-500">DURAÇÃO:</span> <span class="font-bold text-white">${route.total_duration}h</span></div>
+          </div>
+        </div>
+
+        <div class="space-y-2 pt-1">
+          ${route.segments.map((seg, i) => {
+            const src = airportMap[seg.from_airport] || { city: seg.from_airport, country: '' };
+            const dst = airportMap[seg.to_airport] || { city: seg.to_airport, country: '' };
+            return `
+              <div class="p-3 rounded-lg border border-zinc-800/60 bg-zinc-950 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-3">
+                  <span class="w-5 h-5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-[10px] flex items-center justify-center font-bold">${i + 1}</span>
+                  <div>
+                    <span class="font-semibold text-zinc-200">${src.city} (${seg.from_airport}) ➔ ${dst.city} (${seg.to_airport})</span>
+                    <span class="text-[11px] text-zinc-500 ml-2">${dst.country}</span>
+                  </div>
+                </div>
+                <div class="font-mono text-zinc-300">
+                  <span class="font-bold text-white">$${seg.price}</span>
+                  <span class="text-zinc-600 ml-1.5">• ${seg.duration}h</span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    // Disparo de Busca
     document.getElementById('flightForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -472,15 +608,15 @@
       sLoading.classList.remove('hidden');
 
       btn.disabled = true;
-      btnLabel.textContent = 'Processando Grafos...';
+      btnLabel.textContent = 'Calculando Yen K-Paths...';
 
       try {
-        const res = await fetch(`/search?origin=${origin}&destination=${destination}&criteria=${criteria}`);
+        const res = await fetch(`/search?origin=${origin}&destination=${destination}&criteria=${criteria}&k=3`);
         const data = await res.json();
 
         sLoading.classList.add('hidden');
         btn.disabled = false;
-        btnLabel.textContent = 'Traçar Rota no Grafo';
+        btnLabel.textContent = 'Traçar Top 3 Rotas no Globo';
 
         if (!res.ok) {
           document.getElementById('errorMessage').textContent = data.detail || 'Não foi possível encontrar uma rota disponível.';
@@ -489,79 +625,15 @@
           return;
         }
 
-        // Renderiza Resultados de Sucesso
-        document.getElementById('outOriginIATA').textContent = data.origin;
-        document.getElementById('outDestIATA').textContent = data.destination;
-        document.getElementById('outPrice').textContent = `$${data.total_price.toLocaleString('en-US')} USD`;
-        document.getElementById('outDuration').textContent = `${data.total_duration}h`;
-        document.getElementById('outStops').textContent = data.stops === 0 ? 'Voo Direto' : `${data.stops} escala(s)`;
-        document.getElementById('routeBadge').textContent = criteria === 'price' ? 'CRITÉRIO: MENOR CUSTO TARIFA' : 'CRITÉRIO: MENOR TEMPO TOTAL';
-
-        // Linha do tempo dos nós
-        const timeline = document.getElementById('pathTimeline');
-        timeline.innerHTML = '';
-        data.path.forEach((code, idx) => {
-          const airport = airportMap[code] || { city: code, country: '' };
-          const node = document.createElement('div');
-          node.className = 'flex items-center gap-2 p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs';
-          node.innerHTML = `
-            <span class="font-mono font-bold text-white">${code}</span>
-            <span class="text-[11px] text-zinc-500">${airport.city}</span>
-          `;
-          timeline.appendChild(node);
-
-          if (idx < data.path.length - 1) {
-            const sep = document.createElement('span');
-            sep.className = 'text-zinc-600 font-mono text-xs';
-            sep.textContent = '➔';
-            timeline.appendChild(sep);
-          }
-        });
-
-        // Lista de Trechos
-        const list = document.getElementById('segmentsList');
-        list.innerHTML = '';
-        document.getElementById('segmentsSummary').textContent = `${data.segments.length} voo(s) comercial(is)`;
-
-        if (data.segments.length === 0) {
-          list.innerHTML = '<div class="text-xs text-zinc-500 p-4 bg-zinc-900 rounded-xl">Mesmo aeroporto de origem e destino.</div>';
-        } else {
-          data.segments.forEach((seg, i) => {
-            const srcA = airportMap[seg.from_airport] || { city: seg.from_airport, country: '' };
-            const dstA = airportMap[seg.to_airport] || { city: seg.to_airport, country: '' };
-
-            const item = document.createElement('div');
-            item.className = 'p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-950 flex flex-wrap items-center justify-between gap-3 text-xs';
-            item.innerHTML = `
-              <div class="flex items-center gap-3">
-                <span class="w-6 h-6 rounded-md bg-zinc-900 border border-zinc-800 font-mono text-zinc-400 flex items-center justify-center text-[10px] font-bold">${i + 1}</span>
-                <div>
-                  <div class="font-semibold text-zinc-200">
-                    ${srcA.city} (${seg.from_airport}) ➔ ${dstA.city} (${seg.to_airport})
-                  </div>
-                  <div class="text-[11px] text-zinc-500">Trecho Comercial Internacional / Doméstico</div>
-                </div>
-              </div>
-
-              <div class="flex items-center gap-4 font-mono">
-                <div class="text-right">
-                  <span class="text-zinc-200 font-bold">$${seg.price} USD</span>
-                  <span class="text-zinc-600 text-[11px] ml-1.5">• ${seg.duration}h voo</span>
-                </div>
-              </div>
-            `;
-            list.appendChild(item);
-          });
-        }
-
+        renderRoutesUI(data);
         sSuccess.classList.remove('hidden');
-        toast.success('Trajetória Encontrada', `${data.origin} ➔ ${data.destination} em ${data.total_duration}h.`);
+        toast.success('Top 3 Rotas Calculadas', `${data.total_found} alternativas traçadas no mapa.`);
 
       } catch (err) {
         sLoading.classList.add('hidden');
         btn.disabled = false;
-        btnLabel.textContent = 'Traçar Rota no Grafo';
-        document.getElementById('errorMessage').textContent = 'Erro de comunicação ao calcular a rota.';
+        btnLabel.textContent = 'Traçar Top 3 Rotas no Globo';
+        document.getElementById('errorMessage').textContent = 'Erro de comunicação ao calcular as rotas.';
         sError.classList.remove('hidden');
         toast.error('Erro de Rede', err.message);
       }
