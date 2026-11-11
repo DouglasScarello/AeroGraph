@@ -1,19 +1,18 @@
 import os
-from typing import List, Literal
+from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from core.graph import build_graph, get_airport_info
-from core.dijkstra import find_best_routes
+from core.dijkstra import find_smart_routes, find_best_routes
 from core.exceptions import AirportNotFoundError, NoRouteFoundError
 from backend.schemas import AirportSchema, MultiRouteResponse, ErrorResponse
 
 app = FastAPI(
     title="AirCrazyScarello API",
-    description="API de alta performance para roteamento de voos mundiais com K-Shortest Paths (Algoritmo de Yen) e Dijkstra.",
-    version="2.0.0"
+    description="Engine inteligente de aviação global com K-Shortest Paths e categorização automática de rotas.",
+    version="2.1.0"
 )
 
 # CORS Middleware
@@ -25,7 +24,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Caminhos dos datasets e frontend
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AIRPORTS_FILE = os.path.join(BASE_DIR, "data", "airports.csv")
 FLIGHTS_FILE = os.path.join(BASE_DIR, "data", "flights.csv")
@@ -35,43 +33,15 @@ FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 G = build_graph(AIRPORTS_FILE, FLIGHTS_FILE)
 
 
-@app.get(
-    "/",
-    summary="Interface Web do Usuário",
-    description="Retorna a aplicação web visual e amigável para o usuário final com mapa interativo."
-)
+@app.get("/", summary="Interface Web Fullscreen")
 def serve_ui():
     index_file = os.path.join(FRONTEND_DIR, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
-    return {
-        "status": "online",
-        "message": "Welcome to AirCrazyScarello Route Engine",
-        "total_airports": len(G.nodes),
-        "total_flights": len(G.edges)
-    }
+    return {"status": "online", "message": "AirCrazyScarello Engine Online"}
 
 
-@app.get(
-    "/api/status",
-    summary="Status da API",
-    description="Retorna status e resumo dos aeroportos carregados no sistema."
-)
-def api_status():
-    return {
-        "status": "online",
-        "message": "AirCrazyScarello K-Shortest Engine Online",
-        "total_airports": len(G.nodes),
-        "total_flights": len(G.edges)
-    }
-
-
-@app.get(
-    "/airports",
-    response_model=List[AirportSchema],
-    summary="Listar aeroportos",
-    description="Retorna a lista completa de todos os aeroportos cadastrados com coordenadas geográficas."
-)
+@app.get("/airports", response_model=List[AirportSchema], summary="Listar aeroportos mundiais")
 def list_airports():
     airports = []
     for code in sorted(G.nodes):
@@ -81,55 +51,18 @@ def list_airports():
     return airports
 
 
-@app.get(
-    "/airports/{iata}",
-    response_model=AirportSchema,
-    responses={404: {"model": ErrorResponse}},
-    summary="Consultar aeroporto específico",
-    description="Busca os detalhes e coordenadas de um aeroporto a partir do seu código IATA."
-)
-def get_airport(iata: str):
-    code = iata.strip().upper()
-    info = get_airport_info(G, code)
-    if not info:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Aeroporto '{code}' não encontrado na base de dados."
-        )
-    return info
-
-
-@app.get(
-    "/search",
-    response_model=MultiRouteResponse,
-    responses={
-        404: {"model": ErrorResponse},
-        400: {"model": ErrorResponse}
-    },
-    summary="Calcular Top K Melhores Rotas",
-    description="Calcula as melhores rotas alternativas utilizando o Algoritmo de Yen e Dijkstra, ordenadas por preço ou duração."
-)
+@app.get("/search", response_model=MultiRouteResponse, summary="Calcular rotas inteligentes")
 def search_route(
-    origin: str = Query(..., description="Código IATA de origem (ex: GRU)", min_length=3, max_length=3),
-    destination: str = Query(..., description="Código IATA de destino (ex: LHR)", min_length=3, max_length=3),
-    criteria: Literal["price", "duration"] = Query("price", description="Critério de otimização: 'price' para menor custo ou 'duration' para menor tempo"),
-    k: int = Query(3, description="Quantidade de rotas alternativas a retornar (1 a 5)", ge=1, le=5)
+    origin: str = Query(..., description="IATA de origem", min_length=3, max_length=3),
+    destination: str = Query(..., description="IATA de destino", min_length=3, max_length=3)
 ):
     try:
-        routes_data = find_best_routes(G, origin, destination, criteria=criteria, k=k)
+        # Entrega automaticamente a Mais Barata, a Mais Rápida e a Alternativa sem redundância
+        routes_data = find_smart_routes(G, origin, destination)
         return routes_data
     except AirportNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except NoRouteFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno no cálculo das rotas: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro no cálculo: {str(e)}")

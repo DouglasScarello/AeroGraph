@@ -21,6 +21,7 @@ class SegmentSchema(BaseModel):
 class RouteOption(BaseModel):
     rank: int = Field(..., description="Posição no ranking (1 = melhor, 2 = alternativa, 3 = alternativa)", example=1)
     label: str = Field(..., description="Rótulo da rota", example="Opção Principal")
+    badge: Optional[str] = Field("Opção", description="Selo inteligente", example="💰 Mais Barata")
     path: List[str] = Field(..., description="Sequência ordenada de aeroportos", example=["GRU", "LHR"])
     segments: List[SegmentSchema] = Field(..., description="Detalhamento individual de cada voo")
     total_price: int = Field(..., description="Valor total da rota em USD", example=887)
@@ -30,7 +31,7 @@ class RouteOption(BaseModel):
 class MultiRouteResponse(BaseModel):
     origin: str = Field(..., example="GRU")
     destination: str = Field(..., example="LHR")
-    criteria: Literal["price", "duration"] = Field("price", description="Critério de otimização selecionado")
+    criteria: Optional[str] = "smart" = Field("price", description="Critério de otimização selecionado")
     total_found: int = Field(..., description="Quantidade de alternativas calculadas", example=3)
     routes: List[RouteOption] = Field(..., description="As rotas ordenadas pelo critério")
 

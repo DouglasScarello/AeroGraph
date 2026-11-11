@@ -118,3 +118,101 @@ def find_best_route(G: nx.DiGraph, origin: str, destination: str, criteria: str 
         "total_duration": r["total_duration"],
         "stops": r["stops"]
     }
+
+def find_smart_routes(
+    G: nx.DiGraph,
+    origin: str,
+    destination: str
+) -> Dict[str, Any]:
+    """
+    Calcula as 3 rotas definitivas sem necessidade de filtro manual:
+    1. A Rota Mais Barata (Menor Tarifa absoluta)
+    2. A Rota Mais Rápida (Menor Duração total de voo)
+    3. O Melhor Custo-Benefício / Alternativa Inteligente
+    """
+    origin = origin.upper()
+    destination = destination.upper()
+
+    if origin not in G.nodes:
+        raise AirportNotFoundError(origin)
+    if destination not in G.nodes:
+        raise AirportNotFoundError(destination)
+
+    if origin == destination:
+        route = {
+            'rank': 1,
+            'label': 'Mesmo Aeroporto',
+            'badge': 'Destino Local',
+            'path': [origin],
+            'segments': [],
+            'total_price': 0,
+            'total_duration': 0,
+            'stops': 0
+        }
+        return {
+            'origin': origin,
+            'destination': destination,
+            'total_found': 1,
+            'routes': [route]
+        }
+
+    # 1. Busca por menor preço via Yen
+    try:
+        price_gen = nx.shortest_simple_paths(G, origin, destination, weight='price')
+        price_paths = []
+        for i, p in enumerate(price_gen):
+            if i >= 5: break
+            price_paths.append(p)
+    except nx.NetworkXNoPath:
+        raise NoRouteFoundError(origin, destination)
+
+    # 2. Busca por menor duração via Yen
+    try:
+        dur_gen = nx.shortest_simple_paths(G, origin, destination, weight='duration')
+        dur_paths = []
+        for i, p in enumerate(dur_gen):
+            if i >= 5: break
+            dur_paths.append(p)
+    except nx.NetworkXNoPath:
+        dur_paths = []
+
+    # Combina e rotula inteligentemente
+    collected_routes = []
+    seen_paths = set()
+
+    # Rota 1: Mais Barata Absoluta
+    cheapest_path = price_paths[0]
+    seen_paths.add(tuple(cheapest_path))
+    r1 = _build_route_dict(G, cheapest_path, rank=1, label='Mais Econômica')
+    r1['badge'] = '💰 Mais Barata'
+    collected_routes.append(r1)
+
+    # Rota 2: Mais Rápida (se for diferente da mais barata)
+    fastest_path = dur_paths[0] if dur_paths else None
+    if fastest_path and tuple(fastest_path) not in seen_paths:
+        seen_paths.add(tuple(fastest_path))
+        r2 = _build_route_dict(G, fastest_path, rank=2, label='Mais Rápida')
+        r2['badge'] = '⚡ Mais Rápida'
+        collected_routes.append(r2)
+    elif len(price_paths) > 1 and tuple(price_paths[1]) not in seen_paths:
+        seen_paths.add(tuple(price_paths[1]))
+        r2 = _build_route_dict(G, price_paths[1], rank=2, label='Alternativa 2')
+        r2['badge'] = 'Opção Alternativa'
+        collected_routes.append(r2)
+
+    # Rota 3: Melhor Custo-Benefício / Outra Alternativa
+    all_candidates = price_paths + dur_paths
+    for cand in all_candidates:
+        if tuple(cand) not in seen_paths:
+            seen_paths.add(tuple(cand))
+            r3 = _build_route_dict(G, cand, rank=len(collected_routes) + 1, label='Custo-Benefício')
+            r3['badge'] = '⚖ Custo-Benefício'
+            collected_routes.append(r3)
+            break
+
+    return {
+        'origin': origin,
+        'destination': destination,
+        'total_found': len(collected_routes),
+        'routes': collected_routes
+    }
