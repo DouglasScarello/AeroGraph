@@ -744,14 +744,55 @@
         `;
       });
 
+      // Deep-links oficiais dinâmicos para cotação em tempo real (Sem cadastro / Sem chave)
+      const originCode = route.path[0];
+      const destCode = route.path[route.path.length - 1];
+      
+      // Data padrão: 15 dias no futuro
+      const today = new Date();
+      today.setDate(today.getDate() + 15);
+      const dateStr = today.toISOString().split("T")[0];
+      
+      const googleFlightsUrl = `https://www.google.com/travel/flights?q=Flights%20to%20${destCode}%20from%20${originCode}%20on%20${dateStr}`;
+      const skyScannerUrl = `https://www.skyscanner.com.br/transporte/passagens-aereas/${originCode.toLowerCase()}/${destCode.toLowerCase()}/`;
+
       container.innerHTML = `
         <div class="p-3.5 rounded-xl bg-zinc-900/70 border border-zinc-800/80 space-y-3">
           <div class="flex items-center justify-between text-xs font-mono">
-            <span class="font-bold text-zinc-200 uppercase tracking-wider">Itinerário de Voo</span>
+            <span class="font-bold text-zinc-200 uppercase tracking-wider">Itinerário da Rota</span>
             <span class="text-emerald-400 font-bold">${formatPrice(route.total_price)}</span>
           </div>
+
           <div class="pt-1">
             ${segmentsHtml}
+          </div>
+
+          <!-- Ação Prática: Consultar Preço Real no Google Flights & Skyscanner -->
+          <div class="pt-2 border-t border-zinc-800/80 space-y-2">
+            <div class="text-[10px] font-mono text-zinc-500 uppercase flex items-center justify-between">
+              <span>Cotação Ao Vivo das Cias Aéreas</span>
+              <span class="text-emerald-400">100% Grátis</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <a 
+                href="${googleFlightsUrl}" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                class="px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-200 hover:text-white text-xs font-mono font-medium flex items-center justify-center gap-1.5 transition shadow-sm"
+              >
+                <i data-lucide="external-link" class="w-3.5 h-3.5 text-sky-400"></i>
+                <span>Google Flights</span>
+              </a>
+              <a 
+                href="${skyScannerUrl}" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                class="px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-200 hover:text-white text-xs font-mono font-medium flex items-center justify-center gap-1.5 transition shadow-sm"
+              >
+                <i data-lucide="external-link" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>Skyscanner</span>
+              </a>
+            </div>
           </div>
         </div>
       `;
