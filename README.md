@@ -1,4 +1,4 @@
-# ✈️ AirCrazyScarello — Global Flight Navigation Engine & Radar
+# 🌐 AeroGraph — Global Flight Navigation Engine & Tactical Radar
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -7,15 +7,22 @@
 [![Leaflet](https://img.shields.io/badge/Leaflet-Geodesic_Dark_Radar-199900?style=for-the-badge&logo=leaflet&logoColor=white)](https://leafletjs.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
-Uma engine de alta performance para resolução do **Problema do Menor Caminho (Shortest Path Problem)** aplicada à malha aérea comercial global. 
+O **AeroGraph** é uma engine de alta performance para resolução do **Problema do Menor Caminho (Shortest Path Problem)** aplicada à aviação comercial global. 
 
-O sistema modela **3.224 aeroportos** e **36.826 rotas comerciais ativas** em um **Grafo Direcionado Ponderado (`DiGraph`) em memória RAM**, calculando trajetórias intercontinentais ótimas e as **Top 3 Alternativas (Algoritmo de Yen)** em **menos de 15 milissegundos**. O projeto entrega um **Radar Cartográfico Geodésico Fullscreen** (estilo Google Maps / GTA), conversor multimoedas em tempo real e integração direta com o **Google Flights**.
+O sistema compila **3.224 aeroportos** e **36.826 rotas comerciais ativas** em uma estrutura de dados de **Grafo Direcionado Ponderado (`DiGraph`) em memória RAM**, calculando trajetórias intercontinentais ótimas e as **Top 3 Alternativas Simultâneas (Algoritmo de Yen)** em **menos de 15 milissegundos**. O projeto inclui um **Radar Cartográfico Geodésico Fullscreen** (estilo Google Maps / GTA), conversor multimoedas em tempo real e integração direta com o **Google Flights**.
+
+---
+
+## 💡 Sobre o Nome e Conceito
+
+> **AeroGraph** nasce da fusão direta entre **Aeronáutica** e **Teoria dos Grafos** (*Graph Theory*). 
+> O projeto foi batizado para refletir uma abordagem estritamente focada em engenharia de software e ciência da computação pura: tratar o tráfego aéreo planetário não como simples tabelas de banco de dados, mas como uma rede vetorial ponderada de conexões geométricas e econômicas.
 
 ---
 
 ## 🏛️ Destaques de Engenharia & Ciência da Computação
 
-Diferente de agregadores comerciais convencionais que realizam queries pesadas e lentas em bancos de dados relacionais com regras de negócio enviesadas, o **AirCrazyScarello** baseia-se em fundamentos matemáticos puros:
+Diferente de agregadores comerciais convencionais que realizam queries pesadas e lentas em bancos relacionais com filtros heurísticos opacos, o **AeroGraph** baseia-se em algoritmos com prova matemática formal:
 
 * **In-Memory Graph Engine (`NetworkX`)**: Toda a malha aeroviária comercial mundial opera carregada em memória RAM. Complexidade de busca ótima $O((V + E) \log V)$ utilizando Heap de Prioridade Mínima.
 * **Top 3 Alternativas Simultâneas (Algoritmo de Yen - K-Shortest Paths)**: O sistema não obriga o usuário a escolher filtros cegos. Ele calcula simultaneamente:
@@ -76,8 +83,8 @@ A interface converte instantaneamente todos os preços e segmentos sem recarrega
 
 1. **Clonar o repositório:**
    ```bash
-   git clone https://github.com/DouglasScarello/AirCrazyScarello.git
-   cd AirCrazyScarello
+   git clone https://github.com/DouglasScarello/AeroGraph.git
+   cd AeroGraph
    ```
 
 2. **Criar e ativar o ambiente virtual:**
@@ -116,7 +123,7 @@ pytest -v
 ## 📁 Estrutura do Repositório
 
 ```text
-AirCrazyScarello/
+AeroGraph/
 ├── backend/
 │   ├── app.py                # Rotas REST, middleware CORS e inicialização da API
 │   └── schemas.py            # Validação e serialização estrita com Pydantic V2

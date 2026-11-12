@@ -11,7 +11,7 @@ from core.live_flights import fetch_real_flight_price
 from backend.schemas import AirportSchema, MultiRouteResponse, ErrorResponse
 
 app = FastAPI(
-    title="AirCrazyScarello API",
+    title="AeroGraph API",
     description="Engine inteligente de aviação global com Dijkstra + Cotação Real no Google Flights sem cadastro.",
     version="3.0.0"
 )
@@ -39,7 +39,7 @@ def serve_ui():
     index_file = os.path.join(FRONTEND_DIR, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
-    return {"status": "online", "message": "AirCrazyScarello Engine Online"}
+    return {"status": "online", "message": "AeroGraph Engine Online"}
 
 
 @app.get("/airports", response_model=List[AirportSchema], summary="Listar aeroportos mundiais")
