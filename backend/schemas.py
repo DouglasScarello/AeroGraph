@@ -27,6 +27,8 @@ class RouteOption(BaseModel):
     total_price: int = Field(..., description="Valor total da rota em USD", example=887)
     total_duration: int = Field(..., description="Tempo total de voo em horas", example=12)
     stops: int = Field(..., description="Quantidade de escalas", example=0)
+    flight_duration: Optional[int] = Field(0, description="Tempo de voo no ar")
+    layover_hours: Optional[int] = Field(0, description="Tempo de espera em conexões")
 
 class MultiRouteResponse(BaseModel):
     origin: str = Field(..., example="GRU")
