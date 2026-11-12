@@ -89,10 +89,10 @@ def find_best_route(
         r["badge"] = "Local"
         return r
 
-    weight_field = "duration" if criteria == "duration" else "price"
+    weight_func = (lambda u, v, d: d.get("duration", 0) + LAYOVER_HOURS_PER_STOP) if criteria == "duration" else "price"
 
     try:
-        path = nx.dijkstra_path(G, origin, destination, weight=weight_field)
+        path = nx.dijkstra_path(G, origin, destination, weight=weight_func)
     except nx.NetworkXNoPath:
         raise NoRouteFoundError(origin, destination)
 
@@ -107,8 +107,8 @@ def find_smart_routes(
     """
     Gera as rotas comparativas:
     1. Mais Barata: Dijkstra com peso 'price'
-    2. Mais Rápida: Dijkstra com peso 'duration'
-    3. Custo-Benefício / Alternativas: Desvio via Yen (nx.shortest_simple_paths)
+    2. Mais Rápida: Dijkstra considerando tempo de voo + penalidade de escala em solo por trecho
+    3. Alternativas Viáveis: K-caminhos simples via Yen (nx.shortest_simple_paths)
     """
     origin = origin.upper().strip()
     destination = destination.upper().strip()
@@ -135,9 +135,14 @@ def find_smart_routes(
     except nx.NetworkXNoPath:
         raise NoRouteFoundError(origin, destination)
 
-    # 2. Rota mais rápida via Dijkstra
+    # 2. Rota mais rápida via Dijkstra com penalidade de escala por conexão incorporada na busca
+    # Como todo caminho de n trechos tem n-1 escalas, somar LAYOVER_HOURS_PER_STOP em cada aresta penaliza
+    # rotas com conexões diretamente durante a exploração do Min-Heap.
     try:
-        fastest_path = nx.dijkstra_path(G, origin, destination, weight="duration")
+        fastest_path = nx.dijkstra_path(
+            G, origin, destination,
+            weight=lambda u, v, d: d.get("duration", 0) + LAYOVER_HOURS_PER_STOP
+        )
     except nx.NetworkXNoPath:
         fastest_path = cheapest_path
 
