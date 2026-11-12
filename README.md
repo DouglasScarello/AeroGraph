@@ -1,166 +1,111 @@
-# ✈️ AirCrazyScarello — Flight Route Optimization Engine
+# ✈️ AirCrazyScarello — Global Flight Navigation Engine & Radar
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![NetworkX](https://img.shields.io/badge/NetworkX-Graphs-blue?style=for-the-badge)](https://networkx.org/)
-[![Pydantic](https://img.shields.io/badge/Pydantic-V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
-[![Pytest](https://img.shields.io/badge/Pytest-Tests_Passing-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)](https://pytest.org)
+[![NetworkX](https://img.shields.io/badge/NetworkX-In--Memory_Graph-blue?style=for-the-badge)](https://networkx.org/)
+[![Dijkstra & Yen](https://img.shields.io/badge/Algorithm-Dijkstra_%2B_Yen_K--Paths-orange?style=for-the-badge)](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm)
+[![Leaflet](https://img.shields.io/badge/Leaflet-Geodesic_Dark_Radar-199900?style=for-the-badge&logo=leaflet&logoColor=white)](https://leafletjs.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
-Uma API REST de alta performance desenvolvida em **FastAPI** e **NetworkX**, projetada para resolver o problema clássico de roteamento de menor caminho (**Shortest Path Problem**) em malhas aéreas internacionais utilizando o **Algoritmo de Dijkstra**.
+Uma engine de alta performance para resolução do **Problema do Menor Caminho (Shortest Path Problem)** aplicada à malha aérea comercial global. 
 
-A engine permite calcular trajetos multitrecho otimizados dinamicamente por **menor custo financeiro (preço)** ou **menor tempo de deslocamento (duração)**, retornando conexões detalhadas, paradas intermediárias e métricas completas da viagem.
+O sistema modela **3.224 aeroportos** e **36.826 rotas comerciais ativas** em um **Grafo Direcionado Ponderado (`DiGraph`) em memória RAM**, calculando trajetórias intercontinentais ótimas e as **Top 3 Alternativas (Algoritmo de Yen)** em **menos de 15 milissegundos**. O projeto entrega um **Radar Cartográfico Geodésico Fullscreen** (estilo Google Maps / GTA), conversor multimoedas em tempo real e integração direta com o **Google Flights**.
 
 ---
 
-## 🏛️ Teoria da Computação & Arquitetura
+## 🏛️ Destaques de Engenharia & Ciência da Computação
 
-O sistema modela a malha de aviação como um **Grafo Direcionado Ponderado (Weighted DiGraph)**:
-- **Vértices / Nós ($V$)**: Aeroportos identificados pelo código IATA (ex: `GRU`, `JFK`, `LHR`, `CDG`, `DXB`).
-- **Arestas Direcionadas ($E$)**: Trechos de voos comerciais conectando dois aeroportos com pesos independentes:
-  - $w_{price}$: Tarifa do trecho em USD ($).
-  - $w_{duration}$: Duração estimada do voo em horas ($h$).
+Diferente de agregadores comerciais convencionais que realizam queries pesadas e lentas em bancos de dados relacionais com regras de negócio enviesadas, o **AirCrazyScarello** baseia-se em fundamentos matemáticos puros:
+
+* **In-Memory Graph Engine (`NetworkX`)**: Toda a malha aeroviária comercial mundial opera carregada em memória RAM. Complexidade de busca ótima $O((V + E) \log V)$ utilizando Heap de Prioridade Mínima.
+* **Top 3 Alternativas Simultâneas (Algoritmo de Yen - K-Shortest Paths)**: O sistema não obriga o usuário a escolher filtros cegos. Ele calcula simultaneamente:
+  * 🟢 **Mais Econômica:** A rota de menor custo financeiro absoluto da malha mundial.
+  * 🔵 **Mais Rápida:** A rota de menor duração acumulada de voo.
+  * 🟡 **Custo-Benefício:** A melhor alternativa de conexão intermediária viável.
+* **Geodésica Real da Terra (Fórmula de Haversine)**: Cálculo da curvatura do globo terrestre a partir de latitude e longitude reais de cada pista para determinação de distâncias ortodrômicas e custos paramétricos padrão IATA/CASM.
+* **Radar Tático Fullscreen com Traçado em Arcos**: Visualização em tela cheia com aglomeração dinâmica de aeroportos (Leaflet MarkerCluster) e curvas geodésicas de voo (Great Circle Arcs).
+* **Cotação Real em Tempo Real (Google Flights Engine)**: Módulo em Python (`core/live_flights.py`) que decodifica parâmetros Protocol Buffers (Protobuf) e consulta tarifas oficiais de cias aéreas em tempo real, sem necessidade de chaves de API pagas ou cadastros.
+
+---
+
+## 🔄 Fluxo e Arquitetura do Sistema
 
 ```mermaid
-flowchart LR
-    GRU((GRU - SP)) -->|"$650 / 9h"| MIA((MIA - Miami))
-    GRU -->|"$800 / 10h"| JFK((JFK - NY))
-    GRU -->|"$850 / 11h"| CDG((CDG - Paris))
-    GRU -->|"$250 / 3h"| EZE((EZE - Buenos Aires))
-    
-    MIA -->|"$180 / 3h"| JFK
-    JFK -->|"$500 / 7h"| LHR((LHR - Londres))
-    JFK -->|"$600 / 8h"| FRA((FRA - Frankfurt))
-    
-    CDG -->|"$130 / 1h"| LHR
-    CDG -->|"$100 / 1h"| FRA
-    CDG -->|"$1200 / 22h"| SYD((SYD - Sydney))
-    
-    FRA -->|"$450 / 6h"| DXB((DXB - Dubai))
-    DXB -->|"$550 / 9h"| NRT((NRT - Tóquio))
-    DXB -->|"$900 / 14h"| SYD
-    NRT -->|"$700 / 10h"| SYD
-```
-
-### 🧠 Como Funciona o Algoritmo de Dijkstra
-
-Dado um aeroporto de origem $s \in V$ e um destino $t \in V$, o algoritmo mantém uma estimativa de menor distância para cada nó e expande iterativamente o vértice de menor peso acumulado ainda não visitado (usando uma fila de prioridade / heap):
-
-$$\operatorname{dist}[v] = \min(\operatorname{dist}[v], \operatorname{dist}[u] + w(u, v))$$
-
-* Ao selecionar o critério `price`, a função custo minimiza $\sum w_{price}$.
-* Ao selecionar o critério `duration`, a função custo minimiza $\sum w_{duration}$.
-
----
-
-## 🔄 Fluxo de Execução da API
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Client as Cliente / Frontend
-    participant API as FastAPI Gateway (/search)
-    participant Validator as Pydantic Schemas
-    participant Engine as Dijkstra Engine (core.dijkstra)
-    participant Graph as NetworkX DiGraph
-
-    Client->>API: GET /search?origin=GRU&destination=LHR&criteria=price
-    API->>Validator: Valida query params (IATA 3 letras)
-    Validator-->>API: Parâmetros validados
-    API->>Engine: find_best_route(G, origin="GRU", destination="LHR", criteria="price")
-    Engine->>Graph: nx.dijkstra_path(G, weight="price")
-    Graph-->>Engine: Path ótimo: ['GRU', 'CDG', 'LHR']
-    Engine->>Graph: Extrai pesos de cada aresta (preço + duração)
-    Engine-->>API: Retorna payload consolidado com segmentos
-    API-->>Client: 200 OK + RouteResponse JSON
+flowchart TD
+    User([Usuário no Radar Fullscreen]) -->|Seleciona Origem e Destino com Autocomplete| API[FastAPI Gateway /search]
+    API --> Engine[Motor K-Shortest Paths / Yen + Dijkstra]
+    Engine --> Graph[(Grafo em Memória: 3.224 Nós / 36.826 Arestas)]
+    Graph -- Resposta em ~15ms --> Engine
+    Engine --> Payload[Payload JSON: Top 3 Rotas + Coordenadas + Segmentos]
+    Payload --> UI[Interface: Fita de Embarque + Arcos Curvos no Mapa]
+    UI --> LiveBtn[Botão: Buscar Preço Real]
+    LiveBtn --> Scraper[core.live_flights: Protobuf Google Flights]
+    Scraper --> FinalPrice[Tarifa Oficial da Cia Aérea Confirmada ao Vivo]
 ```
 
 ---
 
-## ⚡ Exemplos de Uso
+## ⚡ Exemplo Real: Florianópolis (FLN) ➔ Albany, Austrália (ALH)
 
-### 1. Consultar a melhor rota (GRU ➔ LHR por menor preço)
-```bash
-curl -X GET "http://127.0.0.1:8000/search?origin=GRU&destination=LHR&criteria=price"
-```
+O algoritmo identifica a rota geodésica real mais inteligente do planeta (atravessando o Hemisfério Sul pelo continente africano):
 
-**Resposta JSON (200 OK):**
-```json
-{
-  "origin": "GRU",
-  "destination": "LHR",
-  "criteria": "price",
-  "path": ["GRU", "CDG", "LHR"],
-  "segments": [
-    {
-      "from_airport": "GRU",
-      "to_airport": "CDG",
-      "price": 850,
-      "duration": 11
-    },
-    {
-      "from_airport": "CDG",
-      "to_airport": "LHR",
-      "price": 130,
-      "duration": 1
-    }
-  ],
-  "total_price": 980,
-  "total_duration": 12,
-  "stops": 1
-}
+```text
+Trajeto Calculado (23h de viagem | R$ 9.677):
+FLN (Florianópolis) ➔ GRU (São Paulo) ➔ JNB (Joanesburgo) ➔ PER (Perth) ➔ ALH (Albany)
 ```
 
-### 2. Consultar detalhes de um aeroporto
-```bash
-curl -X GET "http://127.0.0.1:8000/airports/GRU"
-```
-```json
-{
-  "iata": "GRU",
-  "city": "Sao Paulo",
-  "country": "Brazil"
-}
-```
+---
+
+## 💱 Suporte Multimoedas em Tempo Real
+
+A interface converte instantaneamente todos os preços e segmentos sem recarregar a busca:
+* 🇧🇷 **Real Brasileiro (`BRL R$`)**
+* 🇺🇸 **Dólar Americano (`USD $`)**
+* 🇪🇺 **Euro (`EUR €`)**
+* 🇬🇧 **Libra Esterlina (`GBP £`)**
 
 ---
 
 ## 🚀 Como Executar Localmente
 
 ### Pré-requisitos
-* Python 3.10+
-* Git
+* **Python 3.10+**
+* **Git**
 
-### 1. Clonar o repositório:
-```bash
-git clone https://github.com/DouglasScarello/AirCrazyScarello.git
-cd AirCrazyScarello
-```
+### Passo a Passo
 
-### 2. Criar e ativar o ambiente virtual:
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/macOS
-# venv\Scripts\activate   # Windows
-```
+1. **Clonar o repositório:**
+   ```bash
+   git clone https://github.com/DouglasScarello/AirCrazyScarello.git
+   cd AirCrazyScarello
+   ```
 
-### 3. Instalar dependências:
-```bash
-pip install -r requirements.txt
-```
+2. **Criar e ativar o ambiente virtual:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Linux/macOS
+   # venv\Scripts\activate   # Windows
+   ```
 
-### 4. Iniciar a API:
-```bash
-uvicorn backend.app:app --reload
-```
-* **Swagger interativo (OpenAPI):** http://127.0.0.1:8000/docs
-* **ReDoc alternativo:** http://127.0.0.1:8000/redoc
+3. **Instalar dependências:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Iniciar o servidor:**
+   ```bash
+   uvicorn backend.app:app --host 0.0.0.0 --port 8008 --reload
+   ```
+
+5. **Acessar no navegador:**
+   * **Radar Fullscreen:** [http://127.0.0.1:8008/](http://127.0.0.1:8008/)
+   * **Swagger OpenAPI:** [http://127.0.0.1:8008/docs](http://127.0.0.1:8008/docs)
 
 ---
 
-## 🧪 Executando os Testes Automatizados
+## 🧪 Testes Automatizados
 
-O projeto conta com testes unitários do algoritmo e testes de integração de todos os endpoints HTTP:
+Suíte completa com testes unitários da teoria dos grafos e testes de integração dos endpoints HTTP via `TestClient`:
 
 ```bash
 pytest -v
@@ -173,30 +118,29 @@ pytest -v
 ```text
 AirCrazyScarello/
 ├── backend/
-│   ├── __init__.py           # Package marker
-│   ├── app.py                # Rotas da API, middleware CORS e tratamento de exceções
-│   └── schemas.py            # Modelos de dados e validação estrita com Pydantic V2
+│   ├── app.py                # Rotas REST, middleware CORS e inicialização da API
+│   └── schemas.py            # Validação e serialização estrita com Pydantic V2
 ├── core/
-│   ├── __init__.py           # Package marker
-│   ├── dijkstra.py           # Algoritmo de Dijkstra com suporte a múltiplos critérios
-│   ├── exceptions.py         # Exceções customizadas de domínio (404, NoRouteFound)
-│   └── graph.py              # Parser de CSVs e construtor do DiGraph com NetworkX
+│   ├── dijkstra.py           # Algoritmos de Dijkstra e Yen (K-Shortest Paths)
+│   ├── exceptions.py         # Exceções de domínio (AirportNotFoundError, NoRouteFound)
+│   ├── graph.py              # Construtor do Grafo Direcionado em memória com NetworkX
+│   └── live_flights.py       # Extração de tarifas reais via Protobuf (Google Flights)
 ├── data/
-│   ├── airports.csv          # Base cadastral de aeroportos (IATA, Cidade, País)
-│   └── flights.csv           # Malha de voos com custos e tempos de voo
+│   ├── airports.csv          # 3.224 aeroportos comerciais com coordenadas geográficas
+│   └── flights.csv           # 36.826 rotas ativas com pesos paramétricos
+├── frontend/
+│   └── index.html            # Aplicação web fullscreen com Leaflet Dark e Autocomplete
 ├── tests/
-│   ├── __init__.py
 │   ├── test_api.py           # Testes de integração dos endpoints FastAPI
 │   └── test_dijkstra.py      # Testes unitários do cálculo de menor caminho
-├── .gitignore                # Arquivos ignorados pelo Git
-├── requirements.txt          # Dependências do projeto
-└── README.md                 # Documentação completa
+├── requirements.txt          # Dependências do ecossistema
+└── README.md                 # Documentação técnica do projeto
 ```
 
 ---
 
 ## ⚖️ Licença
 
-Distribuído sob a licença **MIT**.
+Distribuído sob a licença **MIT**. Consulte o arquivo `LICENSE` para mais informações.
 
 Desenvolvido por **[Douglas Scarello](https://github.com/DouglasScarello)** 🚀
