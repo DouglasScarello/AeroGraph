@@ -7,54 +7,55 @@
 [![Leaflet](https://img.shields.io/badge/Leaflet-Geodesic_Dark_Radar-199900?style=for-the-badge&logo=leaflet&logoColor=white)](https://leafletjs.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
-O **AeroGraph** é uma aplicação prática de **Teoria dos Grafos** e **Algoritmos de Roteamento** aplicada a uma malha histórica de aviação comercial global.
+O **AeroGraph** é uma aplicação prática de **Teoria dos Grafos** e **Algoritmos de Roteamento** construída sobre uma malha histórica de aviação comercial global.
 
-O sistema compila **3.224 aeroportos** e **36.826 rotas** em um **Grafo Direcionado Ponderado (`DiGraph`) em memória RAM**, calculando trajetórias de menor custo via **Algoritmo de Dijkstra** e rotas alternativas via **Algoritmo de Yen ($K$-Shortest Paths)**. O projeto inclui um **Radar Cartográfico Geodésico Fullscreen** (Leaflet Dark / GTA Style) com traçado de arcos de grande círculo, suporte a múltiplas moedas e um módulo experimental para consulta sob demanda no Google Flights.
+O sistema compila **3.224 aeroportos** e **36.826 rotas** em um **Grafo Direcionado Ponderado (`DiGraph`) em memória RAM**, calculando trajetórias de menor custo via **Algoritmo de Dijkstra** e rotas alternativas via **Algoritmo de Yen ($K$-Shortest Paths)** através da biblioteca **NetworkX**. O projeto conta com uma interface cartográfica fullscreen com **Leaflet**, traçado de arcos geodésicos, conversão multi-moeda no frontend e integração experimental de cotação ao vivo via Google Flights.
 
 ---
 
 ## 💡 Sobre o Nome e Conceito
 
-> **AeroGraph** surge da união entre **Aeronáutica** e **Teoria dos Grafos** (*Graph Theory*). 
-> O objetivo do projeto é demonstrar como problemas de logística aérea podem ser modelados e resolvidos de forma determinística utilizando estruturas de dados em memória e algoritmos clássicos de menor caminho, servindo como base de estudo e portfólio de engenharia de software.
+> **AeroGraph** une **Aeronáutica** e **Teoria dos Grafos** (*Graph Theory*). 
+> O propósito do projeto é acadêmico e de engenharia de software: demonstrar na prática a modelagem de malhas de transporte como grafos ponderados, a exploração de múltiplos caminhos mínimos e a construção de uma camada de API e visualização geoespacial responsiva.
 
 ---
 
 ## 🏛️ Modelagem Matemática e Algoritmos
 
 ### 1. Grafo Direcionado Ponderado $G = (V, E)$
-* **Vértices ($V$):** $3.224$ aeroportos com código IATA e coordenadas geográficas $(\phi, \lambda)$.
-* **Arestas Direcionadas ($E$):** $36.826$ conexões de voo entre pares de aeroportos.
-* **Precondição de Não-Negatividade:** Todos os pesos atribuídos às arestas são estritamente positivos ($w(u, v) > 0$).
-  * *Rigor Teórico:* A ausência de **arestas negativas** é a precondição essencial para a corretude do **Algoritmo de Dijkstra**. Como o algoritmo marca os nós como visitados de maneira gulosa assim que são desempilhados do Min-Heap, uma aresta negativa poderia reduzir o custo acumulado de um caminho já finalizado, o que invalidaria a prova por indução de Dijkstra. (Para grafos com pesos negativos, seriam necessários algoritmos como Bellman-Ford ou Johnson).
+* **Vértices ($V$):** $3.224$ aeroportos com código IATA, cidade, país e coordenadas geográficas $(\phi, \lambda)$.
+* **Arestas Direcionadas ($E$):** $36.826$ conexões de voo registradas entre pares de aeroportos.
+* **Pesos Não-Negativos:** Cada aresta possui pesos estritamente positivos ($w(u, v) > 0$): `price` (USD) e `duration` (horas).
+  * *Rigor Teórico:* A ausência de **arestas negativas** é a precondição matemática para o **Algoritmo de Dijkstra**. Como o algoritmo marca os vértices como visitados de forma gulosa ao retirá-los do Min-Heap, uma aresta negativa invalidaria a garantia de otimalidade por indução. (Grafos com arestas negativas exigiriam Bellman-Ford ou Johnson).
 
 ### 2. Algoritmo de Dijkstra & Complexidade
-Dado o vértice de origem $s \in V$, o algoritmo mantém a estimativa de menor distância com Min-Heap:
+Calcula o caminho de custo mínimo entre a origem $s$ e o destino $t$:
 $$\operatorname{dist}[v] = \min(\operatorname{dist}[v], \operatorname{dist}[u] + w(u, v))$$
-* **Complexidade Assintótica de Tempo:** $O((|V| + |E|) \log |V|)$ com representação de lista de adjacências e fila de prioridade binária.
+* **Implementação:** Utiliza `nx.dijkstra_path` do NetworkX, implementado em Python sobre a estrutura `heapq` (Min-Heap binário).
+* **Complexidade Assintótica de Tempo:** $O((|V| + |E|) \log |V|)$ com listas de adjacência e fila de prioridade binária.
 * **Complexidade de Espaço:** $O(|V| + |E|)$ em memória RAM.
 
-### 3. K-Caminhos Mínimos sem Loops (Algoritmo de Yen)
-O sistema utiliza a implementação do NetworkX (`nx.shortest_simple_paths`), baseada no **Algoritmo de Yen (1971)**:
-* A primeira rota $A_1$ é a rota ótima computada pelo Dijkstra.
+### 3. $K$-Caminhos Mínimos sem Loops (Algoritmo de Yen / NetworkX)
+Para fornecer trajetos alternativos, o sistema utiliza `nx.shortest_simple_paths` do NetworkX, que implementa uma variante otimizada do **Algoritmo de Yen (1971)** com busca de caminhos simples sem repetição de ciclos:
+* A primeira rota $A_1$ é o caminho ótimo retornado pelo Dijkstra.
 * Para cada rota subsequente $A_k$, o algoritmo itera sobre cada vértice do caminho anterior $A_{k-1}$ atuando como **nó de espora (*spur node*)**:
-  1. O trecho da origem até o nó de espora é fixado como caminho raiz (*root path*).
-  2. As arestas já utilizadas em rotas anteriores que saem do nó de espora são temporariamente removidas do grafo para evitar repetição.
-  3. Roda-se um novo Dijkstra a partir do nó de espora até o destino para encontrar o caminho de desvio (*spur path*).
-  4. O candidato resultante (raiz + desvio) é armazenado em uma fila de prioridade de potenciais rotas.
-* **Custo Computacional:** O Yen custa substancialmente mais que um Dijkstra único porque executa múltiplos Dijkstras (na ordem de $O(K \cdot |V| \cdot (|E| + |V| \log |V|))$) para explorar as ramificações sem criar ciclos.
+  1. Fixa a raiz (*root path*) da origem até o nó de espora.
+  2. Remove temporariamente as arestas já percorridas que partem do nó de espora para impedir caminhos duplicados.
+  3. Executa um novo Dijkstra a partir do nó de espora até o destino (*spur path*).
+  4. Adiciona o candidato concatenado a uma fila de prioridade.
+* **Custo Computacional:** Como executa múltiplos Dijkstras a cada nó de espora avaliado, o custo é na ordem de $O(K \cdot |V| \cdot (|E| + |V| \log |V|))$, o que explica o tempo de execução superior ao de uma busca direta.
 
 ### 4. Distâncias Geodésicas e Pós-Processamento (Fórmula de Haversine)
-A distância ortodrômica real entre dois aeroportos $(\phi_1, \lambda_1)$ e $(\phi_2, \lambda_2)$ sobre a esfera terrestre ($R = 6.371\text{ km}$) é computada pelo módulo [`core/haversine.py`](core/haversine.py) durante a montagem do itinerário (`distance_km` por trecho):
+A distância ortodrômica real sobre a esfera terrestre ($R = 6.371\text{ km}$) é implementada em Python puro no módulo [`core/haversine.py`](core/haversine.py):
 $$\Delta\sigma = 2 \arcsin \sqrt{\sin^2\left(\frac{\Delta\phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta\lambda}{2}\right)}, \quad d = R \cdot \Delta\sigma$$
 
-*Observação de Modelagem:* No grafo estático atual, as arestas armazenam os pesos discretos `price` e `duration` (derivados da distância geodésica). O cálculo de Haversine em tempo de execução complementa os metadados de cada voo com a quilometragem exata para renderização no mapa e apresentação ao usuário.
+* **Transparência de Uso:** O Haversine **não é o peso do grafo em tempo de execução**, mas sim uma função de **pós-processamento**. Quando o Dijkstra encontra a rota, o AeroGraph calcula a quilometragem geodésica exata de cada segmento (`distance_km`) para enriquecer os metadados da API e orientar a curvatura dos arcos no mapa.
 
 ---
 
 ## 📊 Benchmark Real de Performance
 
-Medições empíricas realizadas via script [`benchmark.py`](benchmark.py) com **fase de aquecimento (*warmup*)** e **múltiplas iterações** (10 execuções para Dijkstra simples, 5 para o Yen):
+Medições empíricas reais obtidas diretamente na máquina local via script [`benchmark.py`](benchmark.py), com **aquecimento de cache (*warmup*)** e **múltiplas iterações** (10 execuções para Dijkstra simples, 5 para o Yen $K=3$):
 
 | Rota | Tipo de Trajeto | Dijkstra Único (Média ± Desv. Padrão) | Yen K=3 (Média ± Desv. Padrão) |
 | :--- | :--- | :---: | :---: |
@@ -65,35 +66,39 @@ Medições empíricas realizadas via script [`benchmark.py`](benchmark.py) com *
 | **CDG ➔ HND** | Europa ➔ Ásia | **14.24 ms** (±11.28 ms) | **82.25 ms** (±1.27 ms) |
 | **FLN ➔ ALH** | Intercontinental Hemisfério Sul | **12.10 ms** (±0.55 ms) | **102.99 ms** (±0.90 ms) |
 
-* **Tempo de Carga do Grafo em RAM:** ~1.2 segundos na inicialização (3.224 nós e 36.826 arestas).
-* **Média Global Dijkstra Único:** **~9.9 ms** (rotas curtas diretas respondem em fração de milissegundo).
+* **Tempo de Carga do Grafo na Memória:** ~1.2 segundos na inicialização (3.224 nós e 36.826 arestas indexados).
+* **Média Global Dijkstra Único:** **~9.9 ms** (rotas curtas diretas respondem em frações de milissegundo).
 * **Média Global Yen (3 alternativas):** **~72.3 ms** (refletindo o custo de rodar múltiplos Dijkstras por nó de espora).
 
 ---
 
-## 📑 Transparência de Dados e Heurísticas
+## 📑 Transparência de Dados, Heurísticas e Limitações
 
 1. **Origem dos Dados Geográficos e Malha:**
-   * Aeroportos e rotas foram obtidos do banco de dados público da **[OpenFlights](https://openflights.org/data.html)** (dados históricos compilados até cerca de 2014, sob licença *Open Database License - ODbL*).
+   * Aeroportos e rotas foram obtidos da base pública da **[OpenFlights](https://openflights.org/data.html)** (dados históricos compilados até meados de 2014, sob licença *Open Database License - ODbL*).
    * As rotas representam conexões existentes na época do dataset.
-2. **Definição dos Pesos (Heurística Paramétrica Simples):**
-   * Como a OpenFlights fornece apenas a topologia da malha (quais cidades se conectam) e não tarifas comerciais dinâmicas, os pesos de `data/flights.csv` foram gerados através de uma **heurística determinística simplificada** baseada na distância de Haversine ($d_{\text{km}}$):
+2. **Modelagem dos Pesos no Arquivo `flights.csv`:**
+   * A OpenFlights fornece a topologia (quais aeroportos se conectam), mas não tarifas dinâmicas de companhias aéreas. Os valores de `price` e `duration` em `data/flights.csv` foram sintetizados através de uma **heurística paramétrica determinística baseada na distância**:
      $$\text{Duração Estimada (h)} \approx \max\left(1, \operatorname{round}\left(\frac{d_{\text{km}}}{800} + 0.5\right)\right)$$
      $$\text{Tarifa Paramétrica (USD)} \approx 55 + (d_{\text{km}} \times 0.088)$$
-   * **Limitação dessa modelagem:** Por serem derivadas da mesma variável física ($d_{\text{km}}$), preço e duração no grafo estático são fortemente correlacionados. O valor fixo de $55 representa uma taxa base hipotética de manuseio e decolagem. Se o $55 for removido, o preço torna-se estritamente proporcional à distância ($0.088 \cdot d$), tornando os pesos de tempo e preço quase colineares.
-3. **Módulo Experimental `live_flights.py`:**
-   * Utiliza a biblioteca open-source `fast-flights` para consultar tarifas reais do Google Flights sob demanda decodificando parâmetros Protobuf.
-   * *Aviso Acadêmico:* Trata-se de uma Prova de Conceito (PoC) baseada em engenharia reversa de chamadas internas, não garantida para produção e sujeita a quebras caso o Google altere seus payloads.
+   * **Limitação Estrutural (Colinearidade):** Como tanto preço quanto duração foram derivados da distância $d_{\text{km}}$, as duas métricas são fortemente colineares no arquivo estático. Por isso, para cerca de 80% das rotas diretas, a rota "Mais Barata" calculada pelo Dijkstra é numericamente idêntica à "Mais Rápida".
+   * **Penalidade de Conexão em Solo:** Para aproximar o tempo total da realidade de voos com escalas, adicionamos em código uma penalidade de tempo de conexão (`LAYOVER_HOURS_PER_STOP = 2` horas por parada) no cálculo do tempo total de viagem.
+3. **Módulo Experimental de Cotação ao Vivo (`core/live_flights.py`):**
+   * Utiliza a biblioteca open-source `fast-flights` para consultar tarifas comerciais reais no Google Flights via engenharia reversa de payloads Protobuf.
+   * *Aviso de Engenharia:* Trata-se de uma Prova de Conceito (PoC) dependente de chamadas não oficiais do Google Flights, sujeita a instabilidade ou alterações de contrato por parte do provedor.
+4. **Conversão de Moedas no Frontend:**
+   * As taxas de câmbio disponíveis no radar (BRL, USD, EUR, GBP) utilizam multiplicadores fixos no JavaScript (`index.html`) para conversão cosmética imediata na interface, sem requisições a APIs externas de cotação cambial em tempo real.
 
 ---
 
-## 💱 Suporte Multimoedas na Interface
+## 🗺️ Interface Cartográfica (Frontend)
 
-Conversão dinâmica dos valores calculados na interface visual via taxas de referência pré-definidas (sem sobrecarga de reprocessamento do grafo):
-* 🇧🇷 **Real Brasileiro (`BRL R$`)**
-* 🇺🇸 **Dólar Americano (`USD $`)**
-* 🇪🇺 **Euro (`EUR €`)**
-* 🇬🇧 **Libra Esterlina (`GBP £`)**
+* **Biblioteca:** Leaflet.js com clusterização via `leaflet.markercluster` (capaz de renderizar os 3.224 aeroportos simultaneamente sem travar o navegador).
+* **Estilização Visual:** Tiles oficiais do OpenStreetMap com filtro CSS de alto contraste (*Dark Mode* / estética tática).
+* **Arcos Geodésicos:** Curvas quadráticas de Bézier (`L.curve`) com correção de continuidade no **antimeridiano** (meridiano 180° / -180°), impedindo que trajetos transpacíficos cortem o mapa na contramão.
+* **Telemetria e Controle de Concorrência:**
+  * Uso de `AbortController` nativo para cancelar requisições pendentes se o usuário alterar a busca rapidamente.
+  * Medição de latência real de ida e volta da requisição via `performance.now()`, exibida dinamicamente no rodapé do painel.
 
 ---
 
@@ -135,11 +140,13 @@ Conversão dinâmica dos valores calculados na interface visual via taxas de ref
 
 6. **Acessar no navegador:**
    * **Radar Tático Fullscreen:** [http://127.0.0.1:8008/](http://127.0.0.1:8008/)
-   * **Swagger OpenAPI:** [http://127.0.0.1:8008/docs](http://127.0.0.1:8008/docs)
+   * **Documentação Interativa Swagger:** [http://127.0.0.1:8008/docs](http://127.0.0.1:8008/docs)
 
 ---
 
 ## 🧪 Testes Automatizados
+
+A suíte de testes cobre regras de domínio, contratos da API FastAPI e cenários de borda (mesma origem e destino, nós desconhecidos, rotas diretas e com conexões):
 
 ```bash
 pytest -v
@@ -155,22 +162,23 @@ AeroGraph/
 │   ├── app.py                # Rotas REST e inicialização da API FastAPI
 │   └── schemas.py            # Validação e serialização com Pydantic V2
 ├── core/
-│   ├── dijkstra.py           # Algoritmos de Dijkstra e Yen (K-Shortest Paths)
-│   ├── exceptions.py         # Exceções de domínio (AirportNotFoundError, NoRouteFound)
+│   ├── dijkstra.py           # Algoritmos de Dijkstra e Yen (K-Shortest Paths via NetworkX)
+│   ├── exceptions.py         # Exceções de domínio (AirportNotFoundError, NoRouteFoundError)
 │   ├── graph.py              # Construtor do Grafo em memória com NetworkX
+│   ├── haversine.py          # Cálculo de distância ortodrômica em Python puro
 │   └── live_flights.py       # Extração experimental de tarifas (Google Flights Protobuf)
 ├── data/
 │   ├── airports.csv          # 3.224 aeroportos com coordenadas geográficas (ODbL / OpenFlights)
 │   └── flights.csv           # 36.826 rotas com pesos paramétricos
 ├── frontend/
-│   └── index.html            # Interface fullscreen com Leaflet Dark e Autocomplete
+│   └── index.html            # Interface fullscreen com Leaflet Dark, telemetria real e autocomplete
 ├── tests/
 │   ├── test_api.py           # Testes de integração dos endpoints FastAPI
 │   └── test_dijkstra.py      # Testes unitários do cálculo de menor caminho
 ├── benchmark.py              # Medição empírica de latência (N=10 + Warmup)
 ├── requirements.txt          # Dependências do projeto
 ├── LICENSE                   # Licença MIT
-└── README.md                 # Documentação técnica completa
+└── README.md                 # Documentação técnica e acadêmica do projeto
 ```
 
 ---
@@ -178,6 +186,7 @@ AeroGraph/
 ## ⚖️ Licenças e Atribuição
 
 * O código-fonte deste projeto é distribuído sob a licença **MIT** ([LICENSE](LICENSE)).
-* A malha topológica de aeroportos e rotas contida no diretório `data/` é derivada da base de dados aberta **[OpenFlights](https://openflights.org/data.html)**, disponibilizada sob a licença **Open Database License (ODbL)**.
+* A malha de aeroportos e rotas contida no diretório `data/` é derivada da base de dados pública **[OpenFlights](https://openflights.org/data.html)**, disponibilizada sob a licença **Open Database License (ODbL)**.
+* Map tiles fornecidos por **[OpenStreetMap](https://www.openstreetmap.org/copyright)** sob licença CC-BY-SA.
 
 Desenvolvido por **[Douglas Scarello](https://github.com/DouglasScarello)** 🚀
