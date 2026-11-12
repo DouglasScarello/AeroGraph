@@ -5,14 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from core.graph import build_graph, get_airport_info
-from core.dijkstra import find_smart_routes, find_best_routes
+from core.dijkstra import find_smart_routes
 from core.exceptions import AirportNotFoundError, NoRouteFoundError
+from core.live_flights import fetch_real_flight_price
 from backend.schemas import AirportSchema, MultiRouteResponse, ErrorResponse
 
 app = FastAPI(
     title="AirCrazyScarello API",
-    description="Engine inteligente de aviação global com K-Shortest Paths e categorização automática de rotas.",
-    version="2.1.0"
+    description="Engine inteligente de aviação global com Dijkstra + Cotação Real no Google Flights sem cadastro.",
+    version="3.0.0"
 )
 
 # CORS Middleware
@@ -51,13 +52,12 @@ def list_airports():
     return airports
 
 
-@app.get("/search", response_model=MultiRouteResponse, summary="Calcular rotas inteligentes")
+@app.get("/search", response_model=MultiRouteResponse, summary="Calcular rotas inteligentes no Grafo")
 def search_route(
     origin: str = Query(..., description="IATA de origem", min_length=3, max_length=3),
     destination: str = Query(..., description="IATA de destino", min_length=3, max_length=3)
 ):
     try:
-        # Entrega automaticamente a Mais Barata, a Mais Rápida e a Alternativa sem redundância
         routes_data = find_smart_routes(G, origin, destination)
         return routes_data
     except AirportNotFoundError as e:
@@ -66,3 +66,18 @@ def search_route(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro no cálculo: {str(e)}")
+
+
+@app.get("/live-quote", summary="Consultar Cotação Real no Google Flights (Sem Chave/Sem Cadastro)")
+def live_quote(
+    origin: str = Query(..., description="IATA de origem", min_length=3, max_length=3),
+    destination: str = Query(..., description="IATA de destino", min_length=3, max_length=3),
+    currency: str = Query("BRL", description="Moeda (BRL, USD, EUR, GBP)")
+):
+    data = fetch_real_flight_price(origin, destination, currency=currency)
+    if not data or "error" in data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=data.get("error") if data else "Nenhum voo comercial direto ou com conexões retornado pelo Google Flights para a data."
+        )
+    return data

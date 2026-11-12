@@ -767,30 +767,49 @@
             ${segmentsHtml}
           </div>
 
-          <!-- Ação Prática: Consultar Preço Real no Google Flights & Skyscanner -->
-          <div class="pt-2 border-t border-zinc-800/80 space-y-2">
+          <!-- Cotação Real em Tempo Real (Google Flights Live Engine) -->
+          <div class="pt-2 border-t border-zinc-800/80 space-y-2.5">
             <div class="text-[10px] font-mono text-zinc-500 uppercase flex items-center justify-between">
-              <span>Cotação Ao Vivo das Cias Aéreas</span>
-              <span class="text-emerald-400">100% Grátis</span>
+              <span>Verificação de Mercado em Tempo Real</span>
+              <span class="text-emerald-400 font-bold flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Google Flights Live
+              </span>
             </div>
-            <div class="grid grid-cols-2 gap-2">
+
+            <!-- Caixa onde o preço real é injetado -->
+            <div id="liveQuoteBox" class="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono flex items-center justify-between">
+              <div class="text-zinc-400 flex items-center gap-2">
+                <i data-lucide="radar" class="w-4 h-4 text-sky-400"></i>
+                <span>Consultar cotação oficial do dia</span>
+              </div>
+              <button 
+                type="button" 
+                id="btnFetchLive" 
+                onclick="getLiveQuote('${originCode}', '${destCode}')"
+                class="px-2.5 py-1 rounded bg-zinc-100 hover:bg-white text-zinc-950 font-bold text-[11px] transition active:scale-95 shadow"
+              >
+                Buscar Preço Real
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 pt-1">
               <a 
                 href="${googleFlightsUrl}" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                class="px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-200 hover:text-white text-xs font-mono font-medium flex items-center justify-center gap-1.5 transition shadow-sm"
+                class="px-3 py-1.5 rounded-lg bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-[11px] font-mono flex items-center justify-center gap-1.5 transition"
               >
-                <i data-lucide="external-link" class="w-3.5 h-3.5 text-sky-400"></i>
-                <span>Google Flights</span>
+                <i data-lucide="external-link" class="w-3 h-3 text-sky-400"></i>
+                <span>Abrir Google Flights</span>
               </a>
               <a 
                 href="${skyScannerUrl}" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                class="px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-200 hover:text-white text-xs font-mono font-medium flex items-center justify-center gap-1.5 transition shadow-sm"
+                class="px-3 py-1.5 rounded-lg bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-[11px] font-mono flex items-center justify-center gap-1.5 transition"
               >
-                <i data-lucide="external-link" class="w-3.5 h-3.5 text-emerald-400"></i>
-                <span>Skyscanner</span>
+                <i data-lucide="external-link" class="w-3 h-3 text-emerald-400"></i>
+                <span>Abrir Skyscanner</span>
               </a>
             </div>
           </div>
