@@ -44,9 +44,11 @@ O sistema utiliza a implementação do NetworkX (`nx.shortest_simple_paths`), ba
   4. O candidato resultante (raiz + desvio) é armazenado em uma fila de prioridade de potenciais rotas.
 * **Custo Computacional:** O Yen custa substancialmente mais que um Dijkstra único porque executa múltiplos Dijkstras (na ordem de $O(K \cdot |V| \cdot (|E| + |V| \log |V|))$) para explorar as ramificações sem criar ciclos.
 
-### 4. Distâncias Geodésicas (Fórmula de Haversine)
-A distância ortodrômica real entre dois aeroportos $(\phi_1, \lambda_1)$ e $(\phi_2, \lambda_2)$ sobre a esfera terrestre ($R = 6.371\text{ km}$) é computada para evitar distorções de projeção euclidiana:
+### 4. Distâncias Geodésicas e Pós-Processamento (Fórmula de Haversine)
+A distância ortodrômica real entre dois aeroportos $(\phi_1, \lambda_1)$ e $(\phi_2, \lambda_2)$ sobre a esfera terrestre ($R = 6.371\text{ km}$) é computada pelo módulo [`core/haversine.py`](core/haversine.py) durante a montagem do itinerário (`distance_km` por trecho):
 $$\Delta\sigma = 2 \arcsin \sqrt{\sin^2\left(\frac{\Delta\phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta\lambda}{2}\right)}, \quad d = R \cdot \Delta\sigma$$
+
+*Observação de Modelagem:* No grafo estático atual, as arestas armazenam os pesos discretos `price` e `duration` (derivados da distância geodésica). O cálculo de Haversine em tempo de execução complementa os metadados de cada voo com a quilometragem exata para renderização no mapa e apresentação ao usuário.
 
 ---
 
@@ -56,16 +58,16 @@ Medições empíricas realizadas via script [`benchmark.py`](benchmark.py) com *
 
 | Rota | Tipo de Trajeto | Dijkstra Único (Média ± Desv. Padrão) | Yen K=3 (Média ± Desv. Padrão) |
 | :--- | :--- | :---: | :---: |
-| **FLN ➔ GIG** | Doméstico Curto (Brasil) | **0.42 ms** (±0.07 ms) | **4.04 ms** (±0.14 ms) |
-| **GRU ➔ LHR** | Transatlântico Direto | **22.58 ms** (±3.97 ms) | **143.95 ms** (±6.44 ms) |
-| **CDG ➔ HND** | Europa ➔ Ásia | **26.41 ms** (±0.87 ms) | **269.71 ms** (±13.55 ms) |
-| **JFK ➔ SYD** | América do Norte ➔ Oceania | **36.24 ms** (±1.13 ms) | **237.47 ms** (±4.57 ms) |
-| **FLN ➔ ALH** | Intercontinental Hemisfério Sul | **35.43 ms** (±1.57 ms) | **345.27 ms** (±21.91 ms) |
-| **FLN ➔ NRT** | Transpacífico Múltiplas Escalas | **77.77 ms** (±10.95 ms) | **556.52 ms** (±12.67 ms) |
+| **FLN ➔ GIG** | Doméstico Curto (Brasil) | **0.09 ms** (±0.03 ms) | **1.23 ms** (±0.37 ms) |
+| **GRU ➔ LHR** | Transatlântico Direto | **4.04 ms** (±0.54 ms) | **46.83 ms** (±2.98 ms) |
+| **FLN ➔ NRT** | Transpacífico Múltiplas Escalas | **13.68 ms** (±0.75 ms) | **107.50 ms** (±3.86 ms) |
+| **JFK ➔ SYD** | América do Norte ➔ Oceania | **15.43 ms** (±2.40 ms) | **92.82 ms** (±2.44 ms) |
+| **CDG ➔ HND** | Europa ➔ Ásia | **14.24 ms** (±11.28 ms) | **82.25 ms** (±1.27 ms) |
+| **FLN ➔ ALH** | Intercontinental Hemisfério Sul | **12.10 ms** (±0.55 ms) | **102.99 ms** (±0.90 ms) |
 
-* **Tempo de Carga do Grafo em RAM:** ~1.2 segundos na inicialização.
-* **Média Global Dijkstra Único:** **~33 ms** (rotas curtas diretas respondem em fração de milissegundo).
-* **Média Global Yen (3 alternativas):** **~259 ms** (refletindo o custo de rodar múltiplos Dijkstras por desvio).
+* **Tempo de Carga do Grafo em RAM:** ~1.2 segundos na inicialização (3.224 nós e 36.826 arestas).
+* **Média Global Dijkstra Único:** **~9.9 ms** (rotas curtas diretas respondem em fração de milissegundo).
+* **Média Global Yen (3 alternativas):** **~72.3 ms** (refletindo o custo de rodar múltiplos Dijkstras por nó de espora).
 
 ---
 
@@ -85,9 +87,9 @@ Medições empíricas realizadas via script [`benchmark.py`](benchmark.py) com *
 
 ---
 
-## 💱 Suporte Multimoedas em Tempo Real
+## 💱 Suporte Multimoedas na Interface
 
-Conversão dinâmica na interface visual sem reprocessamento do grafo:
+Conversão dinâmica dos valores calculados na interface visual via taxas de referência pré-definidas (sem sobrecarga de reprocessamento do grafo):
 * 🇧🇷 **Real Brasileiro (`BRL R$`)**
 * 🇺🇸 **Dólar Americano (`USD $`)**
 * 🇪🇺 **Euro (`EUR €`)**

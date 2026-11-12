@@ -60,7 +60,7 @@
       background-color: #06070a !important;
     }
 
-    /* Tiles Carto Dark de Alta Performance */
+    /* Tiles OpenStreetMap com Filtro High-Contrast Dark */
     .leaflet-tile {
       filter: brightness(0.75) invert(1) contrast(3.2) hue-rotate(205deg) saturate(0.25);
     }
@@ -108,14 +108,6 @@
       color: #e4e4e7 !important;
       font-family: 'JetBrains Mono', monospace;
       font-weight: 600;
-    }
-
-    /* Animação do Avião / Ponto pulsante ao longo da rota */
-    @keyframes planeFlight {
-      0% { offset-distance: 0%; opacity: 0; }
-      10% { opacity: 1; }
-      90% { opacity: 1; }
-      100% { offset-distance: 100%; opacity: 0; }
     }
 
     /* Custom Scrollbar */
@@ -314,7 +306,8 @@
     <div class="px-4 py-2.5 border-t border-zinc-800/80 bg-zinc-950 text-[10px] font-mono text-zinc-500 flex items-center justify-between">
       <span>Dijkstra Engine Online</span>
       <span class="text-emerald-400 flex items-center gap-1">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> 15ms latency
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="latencyDisplay">Pronto</span>
       </span>
     </div>
 
@@ -342,9 +335,10 @@
       attributionControl: true
     });
 
-    // Tiles Carto Dark sem poluição visual
+    // Tiles Oficiais OpenStreetMap estilizados em Dark Mode via filtro CSS
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
     }).addTo(map);
 
     // Controles de Zoom no canto inferior esquerdo
@@ -452,6 +446,11 @@
 
         if (!res.ok) throw new Error(data.detail || "Voo não cotado para esta data.");
 
+        const currConfig = exchangeRates[data.currency] || exchangeRates.BRL;
+        const formattedLivePrice = currConfig.prefix 
+          ? (currConfig.symbol + Number(data.price).toLocaleString("pt-BR"))
+          : (Number(data.price).toLocaleString("pt-BR") + " " + currConfig.symbol);
+
         box.className = "p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-900/60 text-xs font-mono flex items-center justify-between";
         box.innerHTML = `
           <div>
@@ -461,11 +460,11 @@
             <div class="text-zinc-300 text-[11px] mt-0.5">Operado por <span class="text-white font-bold">${data.airline}</span></div>
           </div>
           <div class="text-right">
-            <div class="text-base font-bold text-white font-mono">${formatPrice(data.price)}</div>
+            <div class="text-base font-bold text-white font-mono">${formattedLivePrice}</div>
             <div class="text-[9px] text-zinc-500">${data.source}</div>
           </div>
         `;
-        toast.success("Cotação em Tempo Real", `${data.airline}: ${formatPrice(data.price)} confirmados no Google Flights.`);
+        toast.success("Cotação em Tempo Real", `${data.airline}: ${formattedLivePrice} confirmados no Google Flights.`);
       } catch (err) {
         box.className = "p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono flex items-center justify-between";
         box.innerHTML = `
@@ -666,12 +665,25 @@
         }).addTo(flightPathGroup).bindPopup(`<strong>${a.iata}</strong> — ${a.city}`);
       });
 
-      // Desenha arcos de voo
+      // Desenha arcos de voo com correção de antimeridiano
       route.segments.forEach(seg => {
         if (seg.from_lat === 0 || seg.to_lat === 0) return;
 
-        const midLat = (seg.from_lat + seg.to_lat) / 2 + (Math.abs(seg.to_lon - seg.from_lon) > 20 ? 8 : 2);
-        const midLon = (seg.from_lon + seg.to_lon) / 2;
+        let diffLon = seg.to_lon - seg.from_lon;
+        let midLon;
+        if (diffLon > 180) {
+          // Atravessando o antimeridiano para oeste
+          midLon = (seg.from_lon + (seg.to_lon - 360)) / 2;
+          if (midLon < -180) midLon += 360;
+        } else if (diffLon < -180) {
+          // Atravessando o antimeridiano para leste
+          midLon = (seg.from_lon + (seg.to_lon + 360)) / 2;
+          if (midLon > 180) midLon -= 360;
+        } else {
+          midLon = (seg.from_lon + seg.to_lon) / 2;
+        }
+
+        const midLat = (seg.from_lat + seg.to_lat) / 2 + (Math.abs(diffLon) > 20 ? 8 : 2);
 
         L.curve(
           ['M', [seg.from_lat, seg.from_lon], 'Q', [midLat, midLon], [seg.to_lat, seg.to_lon]],
@@ -860,24 +872,47 @@
       `;
     }
 
-    // Disparo de Busca
+    // Disparo de Busca com AbortController e Telemetria Real de Latência
+    let searchAbortController = null;
+
     async function triggerSearch() {
       const origin = document.getElementById('originCode').value;
       const destination = document.getElementById('destCode').value;
       
       if (!origin || !destination) return;
 
+      if (origin === destination) {
+        toast.error('Origem e Destino Iguais', 'Escolha dois aeroportos distintos para traçar uma rota.');
+        return;
+      }
+
+      // Cancela busca anterior se o usuário disparou rapidamente
+      if (searchAbortController) {
+        searchAbortController.abort();
+      }
+      searchAbortController = new AbortController();
+
       const sEmpty = document.getElementById('stateEmpty');
       const sLoading = document.getElementById('stateLoading');
       const rResults = document.getElementById('routeResults');
+      const latencyDisplay = document.getElementById('latencyDisplay');
 
       sEmpty.classList.add('hidden');
       rResults.classList.add('hidden');
       sLoading.classList.remove('hidden');
 
+      const t0 = performance.now();
+
       try {
-        const res = await fetch(`/search?origin=${origin}&destination=${destination}`);
+        const res = await fetch(`/search?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`, {
+          signal: searchAbortController.signal
+        });
         const data = await res.json();
+
+        const latency = (performance.now() - t0).toFixed(1);
+        if (latencyDisplay) {
+          latencyDisplay.innerText = `${latency}ms latency`;
+        }
 
         sLoading.classList.add('hidden');
 
@@ -889,9 +924,10 @@
 
         renderRouteCards(data);
         rResults.classList.remove('hidden');
-        toast.success('Radar Atualizado', `${data.total_found} alternativas traçadas no mapa.`);
+        toast.success('Radar Atualizado', `${data.total_found} alternativas traçadas em ${latency}ms.`);
 
       } catch (err) {
+        if (err.name === 'AbortError') return; // Cancelamento intencional
         sLoading.classList.add('hidden');
         sEmpty.classList.remove('hidden');
         toast.error('Erro de Rede', err.message);
